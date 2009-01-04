@@ -1,21 +1,26 @@
 (function(){
 /*
- * yShort 0.1
+ * YAHOO.util.Short 0.1
  * A really short way to write YUI
  * Licensed under the MIT
- * Author Kean Loong Tan
+ * Copyright 2008 Kean Loong Tan
  * $Date: 2008-12-17
  */
  
-var doc = document;
-var win = window;
-
-var UTIL = YAHOO.util;
-var DOM = UTIL.Dom;
-var EVENT = UTIL.Event;
-var SELECT = UTIL.Selector;
-var REGION = UTIL.Region;
-var CONNECT = UTIL.Connect;
+var doc = document,
+	win = window,
+	UTIL = YAHOO.util,
+	DOM = UTIL.Dom,
+	EVENT = UTIL.Event,
+	REGION = UTIL.Region,
+	CONNECT = UTIL.Connect,
+	SELECT = win.Sizzle ? win.Sizzle : UTIL.Selector.query,
+	ELEMENT = UTIL.Element,
+	FILTER = function(selector, o){
+		if (win.Sizzle)
+			return win.Sizzle.filter(o, selector)
+		return UTIL.Selector.filter(selector, o);
+	};
 
 var isFn = function(o) { return typeof o === "function" };
 var isStr = function(o) { return typeof o === "string" };
@@ -23,9 +28,10 @@ var isObj = function(o) { return typeof o === "object" };
 var isNode = function(o) { return o.nodeType; };
 //var isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) };
 
+/*
 var debug = 1;
 var firebug = function(o) {	if (debug) try { console.log(o) } catch(e){} }
-
+*/
 // yQ for internal use YAHOO.util.Short for global use
 var yQ = win.YAHOO.util.Short = function( selector, context ) {
 	// Constructor
@@ -59,7 +65,7 @@ yQ.fn = yQ.prototype = {
 				//if (this[0].nodeType )
 			}
 			else {*/
-				var result = SELECT.query(selector);
+				var result = SELECT(selector);
 				for (var i=0; i < result.length; i++)
 					$[i] = result[i];
 				$.length = result.length;
@@ -161,7 +167,7 @@ yQ.fn = yQ.prototype = {
 				});
 			}
 		}
-		else
+		else if (str)
 			return $[0].innerHTML;
 			
 		return $;
@@ -181,13 +187,12 @@ yQ.fn = yQ.prototype = {
 	},
 	
 	filter: function(selector) {
-		var $ = this;
-		var elems = SELECT.filter($, selector);
+		var $ = this,
+			elems = FILTER($, selector);
+
 		$.wipe(elems.length);
-		//for(var i=0; i<this.length;i++)
-		$.each(function(){ $[i] = elems[i] });
-		$.length = elems.length;
-		
+		$.each(function(i){ $[i] = elems[i] });
+	
 		return $;
 	},
 	
@@ -195,14 +200,15 @@ yQ.fn = yQ.prototype = {
 		var o = [];
 		if (obj) {o[0] = obj }
 		else { o = this; }
-		var elems = SELECT.filter(o, selector);
+		var elems = FILTER(o, selector);
 
 		return elems.length ? true: false;
 	},
 	
+	// we just pass this to the selector filter and wrap them in :not
 	not: function(selector) {
 		var $ = this;
-		var elems = SELECT.filter($, ":not("+selector+")");
+		var elems = FILTER($, ":not("+selector+")");
 		$.wipe(elems.length);
 		$.each(function(i){ $[i] = elems[i]; });
 		$.length = elems.length;
@@ -211,7 +217,7 @@ yQ.fn = yQ.prototype = {
 	},
 	
 	add: function(selector) {
-		var elems = SELECT.query(selector) || [];
+		var elems = SELECT(selector) || [];
 		for(var i=this.length; i<this.length+elems.length; i++)
 			this[i] = elems[i-this.length];
 			
@@ -230,7 +236,7 @@ yQ.fn = yQ.prototype = {
 		});
 
 		if (selector)
-			elems = SELECT.filter(elems, selector);
+			elems = FILTER(elems, selector);
 			
 		// we wipe first, so we increase 'this' length for easy looping to match with elems
 		$.wipe(elems.length);
@@ -266,11 +272,13 @@ yQ.fn = yQ.prototype = {
 	find: function(selector) {
 		var elems = [],
 			$ = this;
-		//for(var i=0; i<this.length;i++)
-		$.each(function(i){
-			elems = elems.concat(SELECT.query(selector, $[i]));
-		});
 
+		$.each(function(i){
+			elems = elems.concat(SELECT(selector, $[i]));
+		});
+		
+		elems = $.unique(elems);
+		
 		// we wipe first, so we reduce 'this' length for easy looping to match with elems
 		$.wipe(elems.length);
 		
@@ -376,6 +384,30 @@ yQ.fn = yQ.prototype = {
 		
 		return $[0].clientHeight || false;
 	},
+	
+	attr: function(prop, val) {
+		var $ = this,
+			el;
+		if (isObj(prop)) {
+			$.each(function(i){
+				el = new YAHOO.util.Element($[i]);
+				el.setAttributes(prop);
+				delete el;
+			});
+		}
+		else if (val)
+			$.each(function(i){
+				el = new YAHOO.util.Element($[i]);
+				el.set(prop,val);
+				delete el;
+			});
+		else if (prop){
+			el = new YAHOO.util.Element($[0]);
+			return el.get(prop);
+		}
+
+		return $;
+	},
 	/*attr: function(prop, val) {
 		var special = /href|src|style/.exec(prop);
 		var safe = /id||style/.exec(prop)
@@ -453,14 +485,10 @@ yQ.fn = yQ.prototype = {
 	appendTo: function(o) {
 		var result,
 			$ = this;
-		if (isNode(o)) {
+		if (isNode(o))
 			result = o;
-		}
-		else if(isStr(o)) {
-			result = SELECT.query(o)[0];
-		}
-		else
-			return $;
+		else if(isStr(o))
+			result = SELECT(o)[0];
 
 		if (result) {
 			$.each(function(i){
@@ -482,7 +510,7 @@ yQ.fn = yQ.prototype = {
 	},
 	
 	ajax: function(o) {
-		
+
 		var opts = this.extend({
 			cache: true,
 			data: null,
@@ -500,8 +528,7 @@ yQ.fn = yQ.prototype = {
 			cache: opts.cache
 		}
 		var transaction = CONNECT.asyncRequest(opts.type, opts.url, callback, opts.data); 
-		
-				
+			
 		return this;
 	},
 	
@@ -520,7 +547,7 @@ yQ.fn = yQ.prototype = {
 			result = o;
 		}
 		else {
-			result = SELECT.query(o)[0];
+			result = SELECT(o)[0];
 			console.log(result)
 		}
 		
@@ -537,7 +564,7 @@ yQ.fn = yQ.prototype = {
 			result = o;
 		}
 		else {
-			result = SELECT.query(o)[0];
+			result = SELECT(o)[0];
 			//console.log(result)
 		}
 		

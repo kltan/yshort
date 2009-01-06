@@ -603,6 +603,49 @@ yQ.fn = yQ.prototype = {
 	*/
 	trim: function( text ) {
 		return (text || "").replace( /^\s+|\s+$/g, "" );
+	},
+	
+	// used internally for now
+	animate: function(type,milisec,val,easing,fn){
+		var attr = {},
+			sec = milisec/1000 || 1,
+			ease = easing || YAHOO.util.Easing.easeNone;
+
+		if (type == 'fadeTo') attr = {opacity: { to: val }};
+		else if (type == 'fadeIn') attr = {opacity: { from:0, to: 1 }};
+		else if (type == 'fadeOut') attr = {opacity: { to: 0 }};
+	
+		var myAnim = new YAHOO.util.Anim(this, attr, sec, ease);
+		myAnim.animate();
+		myAnim.onComplete.subscribe(fn);
+		
+		return this;
+	},
+	
+	// starting the animations / effects
+	fadeIn: function(milisec,fn){
+		return this.animate('fadeIn', milisec, null, null, fn);
+	},
+	
+	fadeOut: function(milisec,fn){
+		return this.animate('fadeOut', milisec, null, null, fn);
+	},
+
+	fadeTo: function(val, milisec, fn){
+		return this.animate('fadeTo', milisec, val, null, fn);
+	},
+
+	hide: function(collapse){
+		return this.css({display:'none'});
+	},
+	
+	show: function(){
+		var $ = this;
+		if ($.css('display') == 'none')
+			$.css({display:''});
+		if ($.css('visibility') == 'hidden')
+			$.css({visibility:'visible'});
+		return $;
 	}
 }
 

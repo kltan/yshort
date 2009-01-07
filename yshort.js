@@ -1,6 +1,6 @@
 (function(){
-/*
- * YAHOO.util.Short 0.1
+/*!
+ * yShort 0.1
  * A really short way to write YUI
  * Licensed under the MIT
  * Copyright 2008 Kean Loong Tan
@@ -9,55 +9,78 @@
  
 var doc = document,
 	win = window,
-	UTIL = YAHOO.util,
-	DOM = UTIL.Dom,
-	EVENT = UTIL.Event,
-	REGION = UTIL.Region,
-	CONNECT = UTIL.Connect,
-	SELECT = win.Sizzle ? win.Sizzle : UTIL.Selector.query,
-	ELEMENT = UTIL.Element,
-	FILTER = function(selector, o){
-		if (win.Sizzle)
-			return win.Sizzle.filter(o, selector)
-		return UTIL.Selector.filter(selector, o);
+	UT = YAHOO.util,
+	DOM = UT.Dom,
+	EV = UT.Event,
+	CON = UT.Connect,
+	SEL = win.Sizzle || UT.Selector.query,
+	EL = UT.Element,
+	FIL = function(qry, o){
+		return win.Sizzle ?	win.Sizzle.filter(o, qry): UT.Selector.filter(qry, o);
 	};
 
 var isFn = function(o) { return typeof o === "function" };
 var isStr = function(o) { return typeof o === "string" };
 var isObj = function(o) { return typeof o === "object" };
 var isNode = function(o) { return o.nodeType; };
-//var isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) };
+var isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) };
 
-/*
-var debug = 1;
-var firebug = function(o) {	if (debug) try { console.log(o) } catch(e){} }
-*/
-// yQ for internal use YAHOO.util.Short for global use
-var yQ = win.YAHOO.util.Short = function( selector, context ) {
+
+// yS for internal use 
+// YAHOO.util.Short for global use
+var yS = win.YAHOO.util.Short = function( qry, context ) {
 	// Constructor
-	return new (yQ.fn).init( selector, context );
+	return new (yS.fn).init( qry, context );
 };
 
-yQ.fn = yQ.prototype = {
+yS.fn = yS.prototype = {
+	// version number and also for yShort object detection
+	yShort: '0.1',
+	animStack: [],
+	// length of array of nodes
 	length: null,
-	selector: null,
-	init: function(selector, context) {
+	// initial CSS qry that was passed to init
+	//qry: null,
+	
+	// constructor
+	init: function(qry, context) {
 		var $ = this;
-		if (!selector) {
+		// if empty, we just make document the our first item in array
+		if (!qry) {
 			$[0]=doc;
 			$.length = 1;
 		}
 		
 		// if nodes
-		else if ( isNode(selector) ) {
-			$[0] = selector;
+		else if (isNode(qry)) {
+			$[0] = qry;
 			$.length = 1;
 		}
+		// if yShort object
+		else if (qry.yShort) {
+			for(var i =0; i<qry.length; i++)
+				$[i] = qry[i];
+			$.length = qry.length;
+		}
+		// if function is passed
+		else if (isFn(qry)) {
+			EV.onDOMReady(function(){ 
+				// on dom ready, we call the qry function and pass document as this, yShort as it's first argument
+				qry.call(doc, yS);
+			});
+		}		
+		// if HTML
+		else if (isHTML(qry)) {
+			var x = document.createElement('YSHORT');
+			x.innerHTML= qry;
+			$[0] = x;
+			$.length=1;
+		}
 		// if CSS query
-		else if (isStr(selector)) {
-			/*if (isHTML(selector)) {
+		else if (isStr(qry)) {
+			/*if (isHTML(qry)) {
 				var x = document.createElement('P');
-				//x.innerHTML = selector;
+				//x.innerHTML = qry;
 				//alert(x.firstChild);
 				//this[0]=document;
 				//this[0]=x.firstChild;
@@ -65,20 +88,15 @@ yQ.fn = yQ.prototype = {
 				//if (this[0].nodeType )
 			}
 			else {*/
-				var result = SELECT(selector);
+				var result = SEL(qry);
 				for (var i=0; i < result.length; i++)
 					$[i] = result[i];
 				$.length = result.length;
-				$.selector = selector;
+				//$.qry = qry;
 				//alert("AS");
 			//}
 		}
-		// if function is passed
-		else if (isFn(selector)) {
-			EVENT.onDOMReady(function(){ 
-				selector.call(doc, yQ);
-			});
-		}
+		
 		return $;
 	},
 	
@@ -87,6 +105,7 @@ yQ.fn = yQ.prototype = {
 			fn.call(this[i]);
 	},*/
 	
+	// iterate through all of yShorts elements
 	each: function(fn) {
 		var $ = this;
 		if (isFn(fn)) 
@@ -96,6 +115,7 @@ yQ.fn = yQ.prototype = {
 		return $;
 	},
 	
+	// returns a unique set of array
 	unique : function(a) {
 		var r = [];
 		o:for(var i = 0, n = a.length; i < n; i++) {
@@ -107,15 +127,18 @@ yQ.fn = yQ.prototype = {
 		return r;
 	},
 	
+	// destroys elements on and after array[n]
 	wipe: function(n) {
 		var $ = this;
 		n = n || 0;
-		for (var i = n; i < this.length; i++)
+		// we cannot use each cause  i = n
+		for (var i = n; i < $.length; i++)
 			delete $[i];
 
 		$.length = n;
 	},
 	
+	// returns the nth item in yShort
 	eq: function(num){
 		var $ = this;
 		$[0] = $[num];
@@ -152,22 +175,11 @@ yQ.fn = yQ.prototype = {
 	},
 	
 	html: function(str) {
-		var ie = /*@cc_on!@*/false;
 		var $ = this;
 
-		if (isStr(str)) {
-			if (ie)
-				$.each(function(i){	$[i].innerHTML = str; });
-			else {
-				
-				$.each(function(i){
-					var newEl = $[i].cloneNode(false);
-					newEl.innerHTML = str;
-					$[i].parentNode.replaceChild(newEl, $[i]);
-				});
-			}
-		}
-		else if (str)
+		if (String(str).length) 
+			$.each(function(i){	$[i].innerHTML = str; });
+		else 
 			return $[0].innerHTML;
 			
 		return $;
@@ -175,7 +187,7 @@ yQ.fn = yQ.prototype = {
 	
 	val: function(str) {
 		var $ = this;
-		if (str)
+		if (String(str).length)
 			$.each(function(i){
 				$[i].value = str;
 			});
@@ -186,104 +198,104 @@ yQ.fn = yQ.prototype = {
 		return $;
 	},
 	
-	filter: function(selector) {
+	filter: function(qry) {
 		var $ = this,
-			elems = FILTER($, selector);
+			els = FIL($, qry);
 
-		$.wipe(elems.length);
-		$.each(function(i){ $[i] = elems[i] });
+		$.wipe(els.length);
+		$.each(function(i){ $[i] = els[i] });
 	
 		return $;
 	},
 	
-	is: function(selector, obj) {
+	is: function(qry, obj) {
 		var o = [];
 		if (obj) {o[0] = obj }
 		else { o = this; }
-		var elems = FILTER(o, selector);
+		var els = FIL(o, qry);
 
-		return elems.length ? true: false;
+		return els.length ? true: false;
 	},
 	
-	// we just pass this to the selector filter and wrap them in :not
-	not: function(selector) {
+	// we just pass this to the qry filter and wrap them in :not
+	not: function(qry) {
 		var $ = this;
-		var elems = FILTER($, ":not("+selector+")");
-		$.wipe(elems.length);
-		$.each(function(i){ $[i] = elems[i]; });
-		$.length = elems.length;
+		var els = FIL($, ":not("+qry+")");
+		$.wipe(els.length);
+		$.each(function(i){ $[i] = els[i]; });
+		$.length = els.length;
 		
 		return $;
 	},
 	
-	add: function(selector) {
-		var elems = SELECT(selector) || [];
-		for(var i=this.length; i<this.length+elems.length; i++)
-			this[i] = elems[i-this.length];
+	add: function(qry) {
+		var els = SEL(qry) || [];
+		for(var i=this.length; i<this.length+els.length; i++)
+			this[i] = els[i-this.length];
 			
-		this.length += elems.length;
+		this.length += els.length;
 		
 		return this;
 	},
 	
-	children: function(selector) {
+	children: function(qry) {
 		var $ = this,
-			elems = [];
+			els = [];
 
 		$.each(function(i){ 
 			// cause we are concatenating array with array			
-			elems = elems.concat(DOM.getChildren($[i]));
+			els = els.concat(DOM.getChildren($[i]));
 		});
 
-		if (selector)
-			elems = FILTER(elems, selector);
+		if (qry)
+			els = FIL(els, qry);
 			
-		// we wipe first, so we increase 'this' length for easy looping to match with elems
-		$.wipe(elems.length);
+		// we wipe first, so we increase 'this' length for easy looping to match with els
+		$.wipe(els.length);
 
 		$.each(function(i){
-			$[i] = elems[i];
+			$[i] = els[i];
 		});
 			
 		return $;
 	},
 	
 	parent: function(){
-		var elems=[],
+		var els=[],
 			$ = this;
 		
 		$.each(function(i){
 			// cause we are concatenating node with array, see above difference with children method		
-			elems[i] = DOM.getAncestorBy($[i]);
+			els[i] = els[i].parentNode;
 		});
 
-		elems = $.unique(elems);
+		els = $.unique(els);
 		
-		// we wipe first, so we reduce 'this' length for easy looping to match with elems
-		$.wipe(elems.length);
+		// we wipe first, so we reduce 'this' length for easy looping to match with els
+		$.wipe(els.length);
 		
 		$.each(function(i){
-			$[i] = elems[i];
+			$[i] = els[i];
 		});
 
 		return $;
 	},
 	
-	find: function(selector) {
-		var elems = [],
+	find: function(qry) {
+		var els = [],
 			$ = this;
 
 		$.each(function(i){
-			elems = elems.concat(SELECT(selector, $[i]));
+			els = els.concat(SEL(qry, $[i]));
 		});
 		
-		elems = $.unique(elems);
+		els = $.unique(els);
 		
-		// we wipe first, so we reduce 'this' length for easy looping to match with elems
-		$.wipe(elems.length);
+		// we wipe first, so we reduce 'this' length for easy looping to match with els
+		$.wipe(els.length);
 		
 		$.each(function(i){
-			$[i] = elems[i];
+			$[i] = els[i];
 		});
 
 		return $;
@@ -337,26 +349,44 @@ yQ.fn = yQ.prototype = {
 	},
 	
 	bind: function(type, fn) {
-		EVENT.addListener(this, type, function(e) {
+		EV.addListener(this, type, function(e) {
 			// mimicking jQuery return false
 			if (fn.call(this, e) === false)
-				EVENT.stopEvent(e);
+				EV.stopEvent(e);
 		});
 		return this;
 	},
+	
 	/*
 	live: function(type, fn) {
 		var yShort = this;
-		EVENT.addListener(document, type, function(e){
+		EV.addListener(document, type, function(e){
 			var obj = e.target || e.srcElement;
-			if(yShort.is(yShort.selector, obj))
+			if(yShort.is(yShort.qry, obj))
 				fn.call(obj, e);
 		});
 		
 		return this;
 	},*/
+	dimension: function(o, type) {
+		var $ = this,
+			obj = {};
+			// detect if string or int
+
+		obj[type] = isStr(o) ? o: parseInt(o) + "px";
+		
+		if (o) {
+			$.css(obj);
+			return $;
+		}
+		
+		type = type.substr(0,1).toUpperCase() + type.substr(1,type.length)
+		return $[0]['client'+type] || false;
+	},
+	
+	// return width as calculated by browser
 	width: function(o) {
-		var $ = this;
+		/*var $ = this;
 		if (isStr(o)) {
 			$.css({width: o});
 			return $;
@@ -368,10 +398,14 @@ yQ.fn = yQ.prototype = {
 		}
 		
 		return $[0].clientWidth || false;
+		*/
+		
+		return this.dimension(o, 'width');
 	},
 	
+	// return height as calculated by browser
 	height: function(o) {
-		var $ = this;
+		/*var $ = this;
 		if (isStr(o)) {
 			$.css({height: o});
 			return $;
@@ -382,28 +416,36 @@ yQ.fn = yQ.prototype = {
 			return $;
 		}
 		
-		return $[0].clientHeight || false;
+		return $[0].clientHeight || false;*/
+		return this.dimension(o, 'height');
 	},
 	
+	// hope for the best, my guess is that it sucks
 	attr: function(prop, val) {
 		var $ = this,
 			el;
+		// if prop is obj, we disregard val
 		if (isObj(prop)) {
 			$.each(function(i){
-				el = new YAHOO.util.Element($[i]);
+				el = new EL($[i]);
 				el.setAttributes(prop);
 				delete el;
 			});
 		}
+		// if prop is not obj and val exists
 		else if (val)
 			$.each(function(i){
-				el = new YAHOO.util.Element($[i]);
+				el = new EL($[i]);
 				el.set(prop,val);
 				delete el;
 			});
+			
+		// if prop does exists
 		else if (prop){
-			el = new YAHOO.util.Element($[0]);
-			return el.get(prop);
+			el = new EL($[0]);
+			var tmp = el.get(prop);
+			delete el;
+			return tmp;
 		}
 
 		return $;
@@ -413,7 +455,7 @@ yQ.fn = yQ.prototype = {
 		var safe = /id||style/.exec(prop)
 		var el;
 		if (!val && isStr(prop)) {
-			el = new ELEMENT(this[0]);
+			el = new EL(this[0]);
 			console.log(el);
 		}/*
 		else {
@@ -483,34 +525,83 @@ yQ.fn = yQ.prototype = {
 	},*/
 	
 	appendTo: function(o) {
-		var result,
+		var tmp,
 			$ = this;
 		if (isNode(o))
-			result = o;
+			tmp = o;
 		else if(isStr(o))
-			result = SELECT(o)[0];
+			tmp = SEL(o)[0];
 
-		if (result) {
+		if (tmp) {
 			$.each(function(i){
-				result.appendChild($[i]);
+				
+				if ($[i].tagName== 'YSHORT') {
+					var lengths = $[i].childNodes.length;
+					for(var j=0; j<lengths; j++)
+						tmp.appendChild($[i].childNodes[0]);
+				}
+				else
+					tmp.appendChild($[i]);
 			});
 		}
 		
 		return $;
 	},
 	
-	extend: function(o, o2) {
-		var temp = {};
-		temp = o;
-		if (o2)
-			for (prop in o2) 
-				temp[prop] = o2[prop]
+	prependTo: function(o) {
+		var tmp,
+			$ = this;
+		if (isNode(o))
+			tmp = o;
+		else if(isStr(o))
+			tmp = SEL(o)[0];
+
+		if (tmp) {
+			$.each(function(i){
+				
+				if ($[i].tagName== 'YSHORT') {
+					var lengths = $[i].childNodes.length,
+						first = tmp.firstChild;
+					for(var j=0; j<lengths; j++)
+						tmp.insertBefore($[i].childNodes[0], first);
+				}
+				else {
+					var first = tmp.firstChild;
+					tmp.insertBefore($[i],first);
+				}
+			});
+		}
 		
-		return temp;
+		return $;
+	},
+	
+	insertBefore: function(o){
+		var tmp,
+			$ = this;
+		if (isNode(o))
+			tmp = o;
+		else if(isStr(o))
+			tmp = SEL(o)[0];
+
+		if (tmp) {
+			$.each(function(i){
+			
+			});
+		}
+	},
+	
+	insertAfter: function(){
+		
+	},
+	
+	extend: function(o) {
+		for ( var i = 0; i < arguments.length; i++ ) 
+			for ( var key in arguments[i] ) 
+			  o[key] = arguments[i][key]; 
+		return o;
 	},
 	
 	ajax: function(o) {
-
 		var opts = this.extend({
 			cache: true,
 			data: null,
@@ -527,18 +618,18 @@ yQ.fn = yQ.prototype = {
 			failure: opts.error,
 			cache: opts.cache
 		}
-		var transaction = CONNECT.asyncRequest(opts.type, opts.url, callback, opts.data); 
+		var transaction = CON.asyncRequest(opts.type, opts.url, callback, opts.data); 
 			
 		return this;
 	},
 	
 	serialize: function() {
-		var temp = '';
+		var tmp = '';
 		for (var i=0; i<this.length; i++)
 			if (this[i].name)
-				temp += this[i].name + '=' + this[i].value + '&';
+				tmp += this[i].name + '=' + this[i].value + '&';
 		// rtrim the & symbol
-		return temp.substring(0, temp.length-1);
+		return tmp.substring(0, tmp.length-1);
 	},
 	/*
 	insertBefore: function(o) {
@@ -547,7 +638,7 @@ yQ.fn = yQ.prototype = {
 			result = o;
 		}
 		else {
-			result = SELECT(o)[0];
+			result = SEL(o)[0];
 			console.log(result)
 		}
 		
@@ -564,7 +655,7 @@ yQ.fn = yQ.prototype = {
 			result = o;
 		}
 		else {
-			result = SELECT(o)[0];
+			result = SEL(o)[0];
 			//console.log(result)
 		}
 		
@@ -581,7 +672,7 @@ yQ.fn = yQ.prototype = {
 			alert("ran append");
 			this[0].innerHTML += o;
 		}
-		/*var result = SELECT(o)[0];
+		/*var result = SEL(o)[0];
 		for(var i=0; i<this.length;i++)
 			result.appendChild(this[i]);
 		
@@ -608,34 +699,67 @@ yQ.fn = yQ.prototype = {
 	// used internally for now
 	animate: function(type,milisec,val,easing,fn){
 		var attr = {},
+			$ = this,
 			sec = milisec/1000 || 1,
 			ease = easing || YAHOO.util.Easing.easeNone;
-
-		if (type == 'fadeTo') attr = {opacity: { to: val }};
-		else if (type == 'fadeIn') attr = {opacity: { from:0, to: 1 }};
-		else if (type == 'fadeOut') attr = {opacity: { to: 0 }};
-	
+		switch(type) {
+			case 'fadeTo': 
+				attr = {opacity: { to: val }};
+				break;    
+			case 'fadeIn':
+				attr = {opacity: { from:0, to: 1 }};
+				break;
+			case 'fadeOut':
+				attr = { opacity: { to: 0 } };
+				break;
+			default:
+				attr = type;
+				break;
+		}
+		
 		var myAnim = new YAHOO.util.Anim(this, attr, sec, ease);
+		//$.animStack.push(myAnim);
 		myAnim.animate();
 		myAnim.onComplete.subscribe(fn);
 		
-		return this;
+		return $;
 	},
+	/* useless because they can only be used in one instance of yShort, fix coming soon
+	// stops all animation
+	stop: function() {
+		var $ = this;
+		for (var i=0; i< $.animStack.length; i++)
+			$.animStack[i].stop();
+		
+		$.animStack = [];
+		
+		return $;
+	},
+	// checks for animation, returns true or false
+	animated: function() {
+		var $ = this;
+		for (var i=0; i< $.animStack.length; i++)
+			if ($.animStack[i].isAnimated())
+				return true;
+		
+		return false;
+	},
+	*/
 	
 	// starting the animations / effects
-	fadeIn: function(milisec,fn){
-		return this.animate('fadeIn', milisec, null, null, fn);
+	fadeIn: function(milisec, fn, easing){
+		return this.animate('fadeIn', milisec, null, easing, fn);
 	},
 	
-	fadeOut: function(milisec,fn){
-		return this.animate('fadeOut', milisec, null, null, fn);
+	fadeOut: function(milisec, fn, easing){
+		return this.animate('fadeOut', milisec, null, easing, fn);
 	},
 
-	fadeTo: function(val, milisec, fn){
-		return this.animate('fadeTo', milisec, val, null, fn);
+	fadeTo: function(val, milisec, fn, easing){
+		return this.animate('fadeTo', milisec, val, easing, fn);
 	},
 
-	hide: function(collapse){
+	hide: function(){
 		return this.css({display:'none'});
 	},
 	
@@ -646,9 +770,22 @@ yQ.fn = yQ.prototype = {
 		if ($.css('visibility') == 'hidden')
 			$.css({visibility:'visible'});
 		return $;
+	},
+	
+	transitColor: function(o, dur){
+		var $ = this;
+		duration = dur/1000 || 1;
+		if (isObj(o)) {
+			$.each(function(i){
+				var anim = new YAHOO.util.ColorAnim(this, o, duration);
+				anim.animate();
+				$.animStack.push(anim);
+			});
+		}
+		return $;
 	}
 }
 
-yQ.fn.init.prototype = yQ.fn;
+yS.fn.init.prototype = yS.fn;
 
 })(); //end anon

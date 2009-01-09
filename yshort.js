@@ -1,8 +1,9 @@
 (function(){
 /*!
- * yShort 0.1
+ * yShort 0.1 
+ * http://github.com/kltan/yshort/tree/master
  * A really short way to write YUI
- * Licensed under the MIT
+ * Licensed under the MIT, free for commercial use without warranties
  * Copyright 2008 Kean Loong Tan
  * $Date: 2008-12-17
  */
@@ -15,16 +16,23 @@ var doc = document,
 	CON = UT.Connect,
 	SEL = win.Sizzle || UT.Selector.query,
 	EL = UT.Element,
-	FIL = function(qry, o){
-		return win.Sizzle ?	win.Sizzle.filter(o, qry): UT.Selector.filter(qry, o);
+	FIL = function(qry, o){	return win.Sizzle ?	win.Sizzle.filter(o, qry): UT.Selector.filter(qry, o); },
+	isFn = function(o) { return typeof o === "function" },
+	isStr = function(o) { return typeof o === "string" },
+	isObj = function(o) { return typeof o === "object" },
+	isNode = function(o) { return o.nodeType; },
+	isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) },
+	get1stNode = function(o) { 
+		return isNode(o) ? o : SEL(o)[0];
 	};
 
-var isFn = function(o) { return typeof o === "function" };
-var isStr = function(o) { return typeof o === "string" };
-var isObj = function(o) { return typeof o === "object" };
-var isNode = function(o) { return o.nodeType; };
-var isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) };
-
+var shortCuts = {
+	dom: DOM,
+	ev: EV,
+	con: CON,
+	sel: SEL,
+	el: EL
+}
 
 // yS for internal use 
 // YAHOO.util.Short for global use
@@ -36,7 +44,7 @@ var yS = win.YAHOO.util.Short = function( qry, context ) {
 yS.fn = yS.prototype = {
 	// version number and also for yShort object detection
 	yShort: '0.1',
-	animStack: [],
+	//animStack: [],
 	// length of array of nodes
 	length: null,
 	// initial CSS qry that was passed to init
@@ -44,7 +52,8 @@ yS.fn = yS.prototype = {
 	
 	// constructor
 	init: function(qry, context) {
-		var $ = this;
+		var $ = this,
+			context = context || doc;
 		// if empty, we just make document the our first item in array
 		if (!qry) {
 			$[0]=doc;
@@ -56,17 +65,17 @@ yS.fn = yS.prototype = {
 			$[0] = qry;
 			$.length = 1;
 		}
-		// if yShort object
-		else if (qry.yShort) {
+		// if object
+		else if (isObj(qry)) {
 			for(var i =0; i<qry.length; i++)
 				$[i] = qry[i];
 			$.length = qry.length;
 		}
-		// if function is passed
+		// if function is passed, this before isHTML as it will also evaluate true
 		else if (isFn(qry)) {
 			EV.onDOMReady(function(){ 
 				// on dom ready, we call the qry function and pass document as this, yShort as it's first argument
-				qry.call(doc, yS);
+				qry.call(doc, yS, shortCuts);
 			});
 		}		
 		// if HTML
@@ -76,34 +85,17 @@ yS.fn = yS.prototype = {
 			$[0] = x;
 			$.length=1;
 		}
+		
 		// if CSS query
 		else if (isStr(qry)) {
-			/*if (isHTML(qry)) {
-				var x = document.createElement('P');
-				//x.innerHTML = qry;
-				//alert(x.firstChild);
-				//this[0]=document;
-				//this[0]=x.firstChild;
-				this.length = 0;
-				//if (this[0].nodeType )
-			}
-			else {*/
-				var result = SEL(qry);
-				for (var i=0; i < result.length; i++)
-					$[i] = result[i];
-				$.length = result.length;
-				//$.qry = qry;
-				//alert("AS");
-			//}
+			var result = SEL(qry, context);
+			for (var i=0; i < result.length; i++)
+				$[i] = result[i];
+			$.length = result.length;
 		}
 		
 		return $;
 	},
-	
-	/*forAll: function(fn) {
-		for(var i=0; i< this.length; i++)
-			fn.call(this[i]);
-	},*/
 	
 	// iterate through all of yShorts elements
 	each: function(fn) {
@@ -177,7 +169,7 @@ yS.fn = yS.prototype = {
 	html: function(str) {
 		var $ = this;
 
-		if (String(str).length) 
+		if (str === 0 || str) 
 			$.each(function(i){	$[i].innerHTML = str; });
 		else 
 			return $[0].innerHTML;
@@ -229,13 +221,23 @@ yS.fn = yS.prototype = {
 	},
 	
 	add: function(qry) {
-		var els = SEL(qry) || [];
-		for(var i=this.length; i<this.length+els.length; i++)
-			this[i] = els[i-this.length];
+		var els = [], 
+			$ =this;
+
+		if (isNode(qry))
+			els[0] = qry;
+		else if (isObj(qry))
+			for (var i=0; i<qry.length; i++)
+				els[i] = qry[i];
+		else
+			els = SEL(qry) || [];
 			
-		this.length += els.length;
+		for(var i=$.length; i<$.length+els.length; i++)
+			$[i] = els[i-$.length];
+			
+		$.length += els.length;
 		
-		return this;
+		return $;
 	},
 	
 	children: function(qry) {
@@ -328,13 +330,10 @@ yS.fn = yS.prototype = {
 		return $;
 	},
 	
-	css : function(o, o2) {
+	css: function(o, o2) {
 		var $ = this;
 		if (isObj(o)) {
-			//set style can accept an array of obj
 			for (p in o) {
-				//alert(p);
-				//alert(o[p]);
 				DOM.setStyle($ , p , o[p]);
 			}
 		}
@@ -348,16 +347,63 @@ yS.fn = yS.prototype = {
 		return $;		
 	},
 	
-	bind: function(type, fn) {
-		EV.addListener(this, type, function(e) {
-			// mimicking jQuery return false
-			if (fn.call(this, e) === false)
-				EV.stopEvent(e);
+	data: function(key,value) {
+		var $ =this;
+		if (value)
+			$.each(function(i){
+				if(!$[i].yshort) $[i].yshort = [];
+				$[i].yshort[key] = value;
+			});
+		else if (key)
+			return $[0].yshort[key];
+			
+		return $;
+	},
+	
+	removeData: function(key) {
+		var $ = this;
+		$.each(function(i){
+			if($[i].yshort) {
+				if(key) 
+					delete $[i].yshort[key];
+				else
+					delete $[i].yshort;			
+			}
 		});
+
+		return $;
+	},
+	
+	bind: function(type, fn) {
+		var tmp = type.split(' ');
+		for (var i=0; i< tmp.length; i++) {
+			tmp[i]= this.trim(tmp[i]);
+			if(tmp[i]) {
+				EV.addListener(this, tmp[i], fn);/*function(e) {
+					// mimicking jQuery return false
+					if (fn.call(this, e) === false)
+						EV.stopEvent(e);
+					// console.log(EV.getListeners(this, 'click'));
+				});*/
+			}
+		}
 		return this;
 	},
 	
-	/*
+	unbind: function(type, fn) {
+		var tmp = type.split(' ');
+		for (var i=0; i< tmp.length; i++) {
+			tmp[i]= this.trim(tmp[i]);
+			if(tmp[i]) {
+				EV.removeListener(this, tmp[i], fn);
+			}
+		}
+		return this;
+	},
+	
+	/* 
+	// reasons for not releasing,
+	// can't unbind, can't use dom obj, pretty much useless at this stage
 	live: function(type, fn) {
 		var yShort = this;
 		EV.addListener(document, type, function(e){
@@ -368,11 +414,12 @@ yS.fn = yS.prototype = {
 		
 		return this;
 	},*/
+	
 	dimension: function(o, type) {
 		var $ = this,
 			obj = {};
-			// detect if string or int
-
+			
+		// detect if string or int
 		obj[type] = isStr(o) ? o: parseInt(o) + "px";
 		
 		if (o) {
@@ -380,43 +427,17 @@ yS.fn = yS.prototype = {
 			return $;
 		}
 		
-		type = type.substr(0,1).toUpperCase() + type.substr(1,type.length)
-		return $[0]['client'+type] || false;
+		type = 'client'+ type.substr(0,1).toUpperCase() + type.substr(1,type.length);
+		return $[0][type] || false;
 	},
 	
 	// return width as calculated by browser
 	width: function(o) {
-		/*var $ = this;
-		if (isStr(o)) {
-			$.css({width: o});
-			return $;
-		}
-		else if(o) {
-			o = parseInt(o) + "px";
-			$.css({width: o});
-			return $;
-		}
-		
-		return $[0].clientWidth || false;
-		*/
-		
 		return this.dimension(o, 'width');
 	},
 	
 	// return height as calculated by browser
 	height: function(o) {
-		/*var $ = this;
-		if (isStr(o)) {
-			$.css({height: o});
-			return $;
-		}
-		else if(o) {
-			o = parseInt(o) + "px";
-			$.css({height: o});
-			return $;
-		}
-		
-		return $[0].clientHeight || false;*/
 		return this.dimension(o, 'height');
 	},
 	
@@ -450,94 +471,15 @@ yS.fn = yS.prototype = {
 
 		return $;
 	},
-	/*attr: function(prop, val) {
-		var special = /href|src|style/.exec(prop);
-		var safe = /id||style/.exec(prop)
-		var el;
-		if (!val && isStr(prop)) {
-			el = new EL(this[0]);
-			console.log(el);
-		}/*
-		else {
-		el.addClass('terjlkerjt');
-		console.log(el);
-		delete el;*/
-		
-		//x.setAttribute(prop, val);
-		
-		
-		//if (isStr(prop)) {
-		/*var isEvent = /^on/.exec(prop);
-		if (isEvent) {
-			for(var i=0; i<this.length;i++) 
-				this[prop]= val;
-		}*/
-		
-		/*
-		else */
-		
-		
-		// we don't support style for attr() use css() please
-		/*
-		if (prop == "style") {
-			// do nothing
-		}
-		// getting values
-		else if (!val && isStr(prop)) {
-			this[0].getAttribute(prop)
-		}
-		// setting values
-		else if (isStr(val) && isStr(prop)) {
-			if (prop == 'class') prop = 'className';
-				for(var i=0; i<this.length;i++) 
-					this[i][prop]= val;
-		}
-		// looping through all the different values
-		else if (isObj(prop) && !val) {
-			for (p in prop) {
-				DOM.setStyle(this , p , prop[p]);
-			}
-		}
-		*/
-		/*
-		if (isStr(prop)) {
-			if (!val) {
-				return this[0].getAttribute(prop);
-			}
-			else {
-				if (prop == "style") { return this } // use .css() instead 
-				else if (prop == "class") { 
-					for(var i=0; i<this.length; i++)
-						this[i].className = val;
-				}
-				else { 
-					for(var i=0; i<this.length; i++)
-						this[prop]=val;	
-				}
-			}
-		}
-		else if(isObj(prop)) {
-			for (p in prop)
-				this.attr(p, prop[p]);
-		}
-		
-		return this;
-	},*/
 	
 	appendTo: function(o) {
-		var tmp,
+		var tmp = get1stNode(o),
 			$ = this;
-		if (isNode(o))
-			tmp = o;
-		else if(isStr(o))
-			tmp = SEL(o)[0];
 
 		if (tmp) {
 			$.each(function(i){
-				
 				if ($[i].tagName== 'YSHORT') {
-					var lengths = $[i].childNodes.length;
-					for(var j=0; j<lengths; j++)
+					while($[i].childNodes.length)
 						tmp.appendChild($[i].childNodes[0]);
 				}
 				else
@@ -549,26 +491,19 @@ yS.fn = yS.prototype = {
 	},
 	
 	prependTo: function(o) {
-		var tmp,
+		var tmp = get1stNode(o),
 			$ = this;
-		if (isNode(o))
-			tmp = o;
-		else if(isStr(o))
-			tmp = SEL(o)[0];
 
 		if (tmp) {
+			var first = tmp.firstChild;
 			$.each(function(i){
-				
 				if ($[i].tagName== 'YSHORT') {
-					var lengths = $[i].childNodes.length,
-						first = tmp.firstChild;
-					for(var j=0; j<lengths; j++)
+					while($[i].childNodes.length)
 						tmp.insertBefore($[i].childNodes[0], first);
+					
 				}
-				else {
-					var first = tmp.firstChild;
+				else
 					tmp.insertBefore($[i],first);
-				}
 			});
 		}
 		
@@ -576,24 +511,44 @@ yS.fn = yS.prototype = {
 	},
 	
 	insertBefore: function(o){
-		var tmp,
+		var tmp = get1stNode(o),
 			$ = this;
-		if (isNode(o))
-			tmp = o;
-		else if(isStr(o))
-			tmp = SEL(o)[0];
 
 		if (tmp) {
+			var parent = tmp.parentNode;
 			$.each(function(i){
-			
+				if ($[i].tagName== 'YSHORT') {
+					while($[i].childNodes.length)
+						parent.insertBefore($[i].childNodes[0], tmp);
+				}
+				else {
+					parent.insertBefore($.next($[i]), tmp);
+				}
 			});
 		}
+		return $;
 	},
 	
-	insertAfter: function(){
+	insertAfter: function(o){
+		var tmp = get1stNode(o),
+			$ = this;
 		
+		if (tmp) {
+			var parent = tmp.parentNode,
+				next = tmp.nextSibling;
+			$.each(function(i){
+				if ($[i].tagName== 'YSHORT') {
+					while($[i].childNodes.length)
+						parent.insertBefore($[i].childNodes[0], next);
+				}
+				else {
+					parent.insertBefore($[i], next);
+				}
+			});
+		}
+		return $;
 	},
-	
+	// extend (o,o2,o3,o4,o5 .......)
 	extend: function(o) {
 		for ( var i = 0; i < arguments.length; i++ ) 
 			for ( var key in arguments[i] ) 
@@ -614,10 +569,13 @@ yS.fn = yS.prototype = {
 		}
 		
 		var callback = {
-			success: function(o){ opts.success.call(document, o.responseText)},
-			failure: opts.error,
+			loading: function(o){ opts.loading.call(document, o.responseText); },
+			success: function(o){ opts.success.call(document, o.responseText); },
+			failure: function(o){ opts.error.call(document, o.responseText); },
 			cache: opts.cache
 		}
+		
+		CON.startEvent.subscribe(callback.loading, callback);
 		var transaction = CON.asyncRequest(opts.type, opts.url, callback, opts.data); 
 			
 		return this;
@@ -631,54 +589,7 @@ yS.fn = yS.prototype = {
 		// rtrim the & symbol
 		return tmp.substring(0, tmp.length-1);
 	},
-	/*
-	insertBefore: function(o) {
-		var result;
-		if (isNode(o)) {
-			result = o;
-		}
-		else {
-			result = SEL(o)[0];
-			console.log(result)
-		}
-		
-		result.insertBefore(y,z)
-		for(var i=0; i<this.length;i++)
-			result.appendChild(this[i]);
-		
-		return this;
-	}*/
-	
-	/*prependTo: function(o){
-		var result;
-		if (isNode(o)) {
-			result = o;
-		}
-		else {
-			result = SEL(o)[0];
-			//console.log(result)
-		}
-		
-//		for(var i=0; i<this.length;i++)
-//			result.appendChild(this[i]);
-		console.log(result.firstChild);
-		for(var i=this.length-1; i>=0;i--)
-			result.insertBefore(this[i], result.firstChild);
-			
-		return this;
-	},*/
-	/*append: function(o) {
-		if (isHTML(o)) {
-			alert("ran append");
-			this[0].innerHTML += o;
-		}
-		/*var result = SEL(o)[0];
-		for(var i=0; i<this.length;i++)
-			result.appendChild(this[i]);
-		
-		return this;
-	},*/
-	/*
+
 	namespace: function(name) {
 		if (name) {
 		    name=name.split(".");
@@ -690,8 +601,9 @@ yS.fn = yS.prototype = {
 				ns = ns[nm] || ( ns[nm] = {} ); 
 			}
 		}
+		return this;
 	},
-	*/
+	
 	trim: function( text ) {
 		return (text || "").replace( /^\s+|\s+$/g, "" );
 	},
@@ -718,7 +630,6 @@ yS.fn = yS.prototype = {
 		}
 		
 		var myAnim = new YAHOO.util.Anim(this, attr, sec, ease);
-		//$.animStack.push(myAnim);
 		myAnim.animate();
 		myAnim.onComplete.subscribe(fn);
 		
@@ -758,28 +669,15 @@ yS.fn = yS.prototype = {
 	fadeTo: function(val, milisec, fn, easing){
 		return this.animate('fadeTo', milisec, val, easing, fn);
 	},
-
-	hide: function(){
-		return this.css({display:'none'});
-	},
-	
-	show: function(){
-		var $ = this;
-		if ($.css('display') == 'none')
-			$.css({display:''});
-		if ($.css('visibility') == 'hidden')
-			$.css({visibility:'visible'});
-		return $;
-	},
-	
-	transitColor: function(o, dur){
+		
+	fadeColor: function(o, dur){
 		var $ = this;
 		duration = dur/1000 || 1;
 		if (isObj(o)) {
 			$.each(function(i){
 				var anim = new YAHOO.util.ColorAnim(this, o, duration);
 				anim.animate();
-				$.animStack.push(anim);
+				//$.animStack.push(anim);
 			});
 		}
 		return $;

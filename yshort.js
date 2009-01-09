@@ -80,7 +80,7 @@ yS.fn = yS.prototype = {
 		}		
 		// if HTML
 		else if (isHTML(qry)) {
-			var x = document.createElement('YSHORT');
+			var x = doc.createElement('YSHORT');
 			x.innerHTML= qry;
 			$[0] = x;
 			$.length=1;
@@ -406,7 +406,7 @@ yS.fn = yS.prototype = {
 	// can't unbind, can't use dom obj, pretty much useless at this stage
 	live: function(type, fn) {
 		var yShort = this;
-		EV.addListener(document, type, function(e){
+		EV.addListener(doc, type, function(e){
 			var obj = e.target || e.srcElement;
 			if(yShort.is(yShort.qry, obj))
 				fn.call(obj, e);
@@ -569,9 +569,9 @@ yS.fn = yS.prototype = {
 		}
 		
 		var callback = {
-			loading: function(o){ opts.loading.call(document, o.responseText); },
-			success: function(o){ opts.success.call(document, o.responseText); },
-			failure: function(o){ opts.error.call(document, o.responseText); },
+			loading: function(o){ opts.loading.call(doc, o.responseText); },
+			success: function(o){ opts.success.call(doc, o.responseText); },
+			failure: function(o){ opts.error.call(doc, o.responseText); },
 			cache: opts.cache
 		}
 		
@@ -675,9 +675,8 @@ yS.fn = yS.prototype = {
 		duration = dur/1000 || 1;
 		if (isObj(o)) {
 			$.each(function(i){
-				var anim = new YAHOO.util.ColorAnim(this, o, duration);
+				var anim = new UT.ColorAnim($, o, duration);
 				anim.animate();
-				//$.animStack.push(anim);
 			});
 		}
 		return $;

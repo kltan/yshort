@@ -387,11 +387,12 @@ yS.fn = yS.prototype = {
 	},
 	
 	bind: function(type, fn) {
-		var tmp = type.split(' ');
+		var tmp = type.split(' '),
+			$ = this;
 		for (var i=0; i< tmp.length; i++) {
-			tmp[i]= this.trim(tmp[i]);
+			//tmp[i] = $.trim(tmp[i]);
 			if(tmp[i]) {
-				EV.addListener(this, tmp[i], fn);/*function(e) {
+				EV.addListener($, tmp[i], fn);/*function(e) {
 					// mimicking jQuery return false
 					if (fn.call(this, e) === false)
 						EV.stopEvent(e);
@@ -399,18 +400,19 @@ yS.fn = yS.prototype = {
 				});*/
 			}
 		}
-		return this;
+		return $;
 	},
 	
 	unbind: function(type, fn) {
-		var tmp = type.split(' ');
+		var tmp = type.split(' '),
+			$ = this;
 		for (var i=0; i< tmp.length; i++) {
-			tmp[i]= this.trim(tmp[i]);
+			//tmp[i] = $.trim(tmp[i]);
 			if(tmp[i]) {
-				EV.removeListener(this, tmp[i], fn);
+				EV.removeListener($, tmp[i], fn);
 			}
 		}
-		return this;
+		return $;
 	},
 	
 	 

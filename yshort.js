@@ -5,12 +5,13 @@
  * A really short way to write YUI
  * Licensed under the MIT, free for commercial use without warranties
  * Copyright 2008 Kean Loong Tan
- * $Date: 2008-12-17
+ * Start date: 2008-12-17
+ * Last update: 2009-01-09
  */
  
 var doc = document,
 	win = window,
-	UT = YAHOO.util,
+	UT = win.YAHOO.util,
 	DOM = UT.Dom,
 	EV = UT.Event,
 	CON = UT.Connect,
@@ -26,17 +27,17 @@ var doc = document,
 		return isNode(o) ? o : SEL(o)[0];
 	};
 
-var shortCuts = {
-	dom: DOM,
-	ev: EV,
-	con: CON,
-	sel: SEL,
-	el: EL
+var shortCuts = UT.Shortcuts = {
+	DOM: DOM,
+	EV: EV,
+	CON: CON,
+	SEL: SEL,
+	EL: EL
 }
 
 // yS for internal use 
 // YAHOO.util.Short for global use
-var yS = win.YAHOO.util.Short = function( qry, context ) {
+var yS = UT.Short = function( qry, context ) {
 	// Constructor
 	return new (yS.fn).init( qry, context );
 };
@@ -47,6 +48,10 @@ yS.fn = yS.prototype = {
 	//animStack: [],
 	// length of array of nodes
 	length: null,
+	// live event functions
+	liveStack: [],
+	// the selector that was used to create this yshort obj
+	selector: null,
 	// initial CSS qry that was passed to init
 	//qry: null,
 	
@@ -70,6 +75,7 @@ yS.fn = yS.prototype = {
 			for(var i =0; i<qry.length; i++)
 				$[i] = qry[i];
 			$.length = qry.length;
+			$.selector = qry.selector;
 		}
 		// if function is passed, this before isHTML as it will also evaluate true
 		else if (isFn(qry)) {
@@ -88,6 +94,7 @@ yS.fn = yS.prototype = {
 		
 		// if CSS query
 		else if (isStr(qry)) {
+			$.selector = qry;
 			var result = SEL(qry, context);
 			for (var i=0; i < result.length; i++)
 				$[i] = result[i];
@@ -137,6 +144,10 @@ yS.fn = yS.prototype = {
 		$.wipe(1);
 
 		return $;
+	},
+	
+	get: function(num) {
+		return (num === 0 || num) ? [].slice.call(this, num, num+1) : [].slice.call(this);
 	},
 	
 	addClass: function(str) {
@@ -204,12 +215,13 @@ yS.fn = yS.prototype = {
 		var o = [];
 		if (obj) {o[0] = obj }
 		else { o = this; }
+
 		var els = FIL(o, qry);
 
 		return els.length ? true: false;
 	},
 	
-	// we just pass this to the qry filter and wrap them in :not
+	// we just pass this to the selector filter and wrap them in :not
 	not: function(qry) {
 		var $ = this;
 		var els = FIL($, ":not("+qry+")");
@@ -351,11 +363,11 @@ yS.fn = yS.prototype = {
 		var $ =this;
 		if (value)
 			$.each(function(i){
-				if(!$[i].yshort) $[i].yshort = [];
-				$[i].yshort[key] = value;
+				if(!$[i].yshortdata) $[i].yshortdata = [];
+				$[i].yshortdata[key] = value;
 			});
 		else if (key)
-			return $[0].yshort[key];
+			return $[0].yshortdata[key];
 			
 		return $;
 	},
@@ -363,11 +375,11 @@ yS.fn = yS.prototype = {
 	removeData: function(key) {
 		var $ = this;
 		$.each(function(i){
-			if($[i].yshort) {
+			if($[i].yshortdata) {
 				if(key) 
-					delete $[i].yshort[key];
+					delete $[i].yshortdata[key];
 				else
-					delete $[i].yshort;			
+					delete $[i].yshortdata;			
 			}
 		});
 
@@ -401,19 +413,32 @@ yS.fn = yS.prototype = {
 		return this;
 	},
 	
-	/* 
-	// reasons for not releasing,
-	// can't unbind, can't use dom obj, pretty much useless at this stage
+	 
+	// reasons for beta,
+	// can't use dom obj, i failed guys
 	live: function(type, fn) {
-		var yShort = this;
-		EV.addListener(doc, type, function(e){
+		var $ = this,
+			idx = fn.toString().substr(0, 50);
+
+		$.liveStack[idx] = function(e){
 			var obj = e.target || e.srcElement;
-			if(yShort.is(yShort.qry, obj))
+			if($.is($.selector, obj))
 				fn.call(obj, e);
-		});
+		};
 		
-		return this;
-	},*/
+		EV.addListener(doc, type, $.liveStack[idx]);
+		
+		return $;
+	},
+	
+	die: function(type, fn) {
+		var $ = this,
+			idx = fn.toString().substr(0, 50);
+		
+		EV.removeListener(doc, type, $.liveStack[idx]);
+		
+		return $;
+	},	
 	
 	dimension: function(o, type) {
 		var $ = this,
@@ -548,6 +573,7 @@ yS.fn = yS.prototype = {
 		}
 		return $;
 	},
+	
 	// extend (o,o2,o3,o4,o5 .......)
 	extend: function(o) {
 		for ( var i = 0; i < arguments.length; i++ ) 
@@ -556,6 +582,7 @@ yS.fn = yS.prototype = {
 		return o;
 	},
 	
+	// remap YAHOO's asyncRequest
 	ajax: function(o) {
 		var opts = this.extend({
 			cache: true,
@@ -631,7 +658,8 @@ yS.fn = yS.prototype = {
 		
 		var myAnim = new YAHOO.util.Anim(this, attr, sec, ease);
 		myAnim.animate();
-		myAnim.onComplete.subscribe(fn);
+		if (fn)
+			myAnim.onComplete.subscribe(fn);
 		
 		return $;
 	},

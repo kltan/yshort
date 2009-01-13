@@ -3,10 +3,10 @@
  * yShort 0.1 
  * http://github.com/kltan/yshort/tree/master
  * A really short way to write YUI
- * Licensed under the MIT, free for commercial use without warranties
+ * Licensed under the MIT, BSD or GPL, choose a license that suits your needs
  * Copyright 2008 Kean Loong Tan
  * Start date: 2008-12-17
- * Last update: 2009-01-09
+ * Last update: 2009-01-12
  */
  
 var doc = document,
@@ -32,7 +32,8 @@ var shortCuts = UT.Shortcuts = {
 	EV: EV,
 	CON: CON,
 	SEL: SEL,
-	EL: EL
+	EL: EL,
+	GET: UT.Get
 }
 
 // yS for internal use 
@@ -190,7 +191,7 @@ yS.fn = yS.prototype = {
 	
 	val: function(str) {
 		var $ = this;
-		if (String(str).length)
+		if (str==='' || String(str).length)
 			$.each(function(i){
 				$[i].value = str;
 			});
@@ -277,10 +278,10 @@ yS.fn = yS.prototype = {
 	parent: function(){
 		var els=[],
 			$ = this;
-		
+
 		$.each(function(i){
 			// cause we are concatenating node with array, see above difference with children method		
-			els[i] = els[i].parentNode;
+			els[i] = $[i].parentNode;
 		});
 
 		els = $.unique(els);
@@ -573,6 +574,16 @@ yS.fn = yS.prototype = {
 				}
 			});
 		}
+		return $;
+	},
+	
+	clone: function(){
+		var $ = this,
+			node = $[0].cloneNode(true);
+		
+		$.wipe(1);
+		$[0] = node;
+		
 		return $;
 	},
 	

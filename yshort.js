@@ -3,10 +3,11 @@
  * yShort 0.1 
  * http://github.com/kltan/yshort/tree/master
  * A really short way to write YUI
- * Licensed under the MIT, BSD or GPL, choose a license that suits your needs
- * Copyright 2008 Kean Loong Tan
+ * Licensed under the MIT or GPL, choose a license that suits your needs
+ * Copyright 2009 Kean Loong Tan
+ * Parts of the code, like isArray, inArray, trim, grep are copyrighted by the jQuery foundation
  * Start date: 2008-12-17
- * Last update: 2009-01-12
+ * Last update: 2009-01-16
  */
  
 var doc = document,
@@ -23,18 +24,15 @@ var doc = document,
 	isObj = function(o) { return typeof o === "object" },
 	isNode = function(o) { return o.nodeType; },
 	isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) },
-	get1stNode = function(o) { 
-		return isNode(o) ? o : SEL(o)[0];
+	get1stNode = function(o) { 	return isNode(o) ? o : SEL(o)[0]; },
+	shortCuts = UT.Shortcuts = {
+		DOM: DOM,
+		EV: EV,
+		CON: CON,
+		SEL: SEL,
+		EL: EL,
+		GET: UT.Get
 	};
-
-var shortCuts = UT.Shortcuts = {
-	DOM: DOM,
-	EV: EV,
-	CON: CON,
-	SEL: SEL,
-	EL: EL,
-	GET: UT.Get
-}
 
 // yS for internal use 
 // YAHOO.util.Short for global use
@@ -50,7 +48,7 @@ yS.fn = yS.prototype = {
 	// length of array of nodes
 	length: null,
 	// live event functions
-	liveStack: [],
+	//liveStack: [],
 	// the selector that was used to create this yshort obj
 	selector: null,
 	// initial CSS qry that was passed to init
@@ -106,12 +104,18 @@ yS.fn = yS.prototype = {
 	},
 	
 	// iterate through all of yShorts elements
-	each: function(fn) {
+	each: function(o, fn) {
 		var $ = this;
-		if (isFn(fn)) 
-			for (var i=0; i < $.length; i++) {
-				fn.call($[i], i);
+		if (fn)
+			for (var i=0; i < o.length; i++) {
+				fn.call(o[i], i);
 			}
+		
+		else /*if (isFn(o)) */
+			for (var i=0; i < $.length; i++) {
+				o.call($[i], i);
+			}
+		
 		return $;
 	},
 	
@@ -441,7 +445,7 @@ yS.fn = yS.prototype = {
 		EV.removeListener(doc, type, $.liveStack[idx]);
 		
 		return $;
-	},	
+	},
 	
 	dimension: function(o, type) {
 		var $ = this,
@@ -725,5 +729,58 @@ yS.fn = yS.prototype = {
 }
 
 yS.fn.init.prototype = yS.fn;
+
+// define
+yS.extend = yS.fn.extend;
+
+// execute to extend yShort
+yS.extend(yS, {
+	
+	each: yS.fn.each,
+	
+	makeArray: function(o){	return [].slice.call(o); },
+	
+	unique: yS.fn.unique,
+	
+	grep: function(o, fn) {
+		var arry = [];
+		// Go through the array, only saving the items that pass the validator function
+		for ( var i = 0; i < o.length; i++ )
+			if (!fn.call(o[i], o[i], i) === false)
+				arry.push( o[i] );
+
+		return arry;
+	},
+	
+	inArray: function(el, o){
+		// prevent ie's window == document problem
+		for ( var i = 0; i < o.length; i++ )
+			if ( o[i] === elem )
+				return i;
+		return -1;
+	},
+	
+	map: function(o, fn) {
+		var arry = [];
+
+		for ( var i = 0; i < o.length; i++ ) 
+			arry.push(fn.call(o[i], o[i], i));
+
+		return arry;
+	},
+	
+	merge: function(){
+		var o = [];
+		for ( var i = 0; i < arguments.length; i++ ) 
+			o = o.concat(arguments[i]);	
+		return o;
+	},
+	
+	isArray: function(o){ return toString.call(obj) === "[object Array]"; },
+	
+	isFunction: isFn,
+	
+	trim: yS.fn.trim
+});
 
 })(); //end anon

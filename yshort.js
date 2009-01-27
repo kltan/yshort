@@ -7,7 +7,7 @@
  * Copyright 2009 Kean Loong Tan
  * Parts of the code, like isArray, inArray, trim, grep are copyrighted by the jQuery foundation
  * Start date: 2008-12-17
- * Last update: 2009-01-16
+ * Last update: 2009-01-27
  */
  
 var doc = document,
@@ -25,6 +25,7 @@ var doc = document,
 	isNode = function(o) { return o.nodeType; },
 	isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) },
 	get1stNode = function(o) { 	return isNode(o) ? o : SEL(o)[0]; },
+	animStack = [],
 	shortCuts = UT.Shortcuts = {
 		DOM: DOM,
 		EV: EV,
@@ -44,7 +45,7 @@ var yS = UT.Short = function( qry, context ) {
 yS.fn = yS.prototype = {
 	// version number and also for yShort object detection
 	yShort: '0.1',
-	//animStack: [],
+	previousStack: [],
 	// length of array of nodes
 	length: null,
 	// live event functions
@@ -74,7 +75,8 @@ yS.fn = yS.prototype = {
 			for(var i =0; i<qry.length; i++)
 				$[i] = qry[i];
 			$.length = qry.length;
-			$.selector = qry.selector;
+			$.selector = qry.selector || null;
+			$.previousStack = qry.previousStack || [],
 		}
 		// if function is passed, this before isHTML as it will also evaluate true
 		else if (isFn(qry)) {
@@ -111,7 +113,7 @@ yS.fn = yS.prototype = {
 				fn.call(o[i], i);
 			}
 		
-		else /*if (isFn(o)) */
+		else if (isFn(o))
 			for (var i=0; i < $.length; i++) {
 				o.call($[i], i);
 			}
@@ -142,10 +144,36 @@ yS.fn = yS.prototype = {
 		$.length = n;
 	},
 	
+	stack: function(){
+		var temp = {}, $ = this;
+		temp.length = $.length;
+		$.each(function(i){
+			temp[i] = $[i];
+		});
+		$.previousStack.push(temp);
+		$.wipe();
+		
+		return temp;
+	},
+	
+	end: function(){
+		var $ = this,
+			temp = $.previousStack[$.previousStack.length-1];
+			
+		$.each(temp, function(i){
+			$[i] = temp[i];	
+		});
+		$.wipe(temp.length);
+		$.previousStack.pop();
+		return $;
+		
+	},
+	
 	// returns the nth item in yShort
 	eq: function(num){
 		var $ = this;
-		$[0] = $[num];
+
+		$[0] = $.stack()[num];
 		$.wipe(1);
 
 		return $;
@@ -268,7 +296,9 @@ yS.fn = yS.prototype = {
 
 		if (qry)
 			els = FIL(els, qry);
-			
+		
+		$.stack();
+		
 		// we wipe first, so we increase 'this' length for easy looping to match with els
 		$.wipe(els.length);
 
@@ -287,6 +317,8 @@ yS.fn = yS.prototype = {
 			// cause we are concatenating node with array, see above difference with children method		
 			els[i] = $[i].parentNode;
 		});
+		
+		$.stack();
 
 		els = $.unique(els);
 		
@@ -308,6 +340,8 @@ yS.fn = yS.prototype = {
 			els = els.concat(SEL(qry, $[i]));
 		});
 		
+		$.stack();
+		
 		els = $.unique(els);
 		
 		// we wipe first, so we reduce 'this' length for easy looping to match with els
@@ -323,8 +357,9 @@ yS.fn = yS.prototype = {
 	next: function(){
 		var $ = this,
 			nS = DOM.getNextSibling($[0]);
-			
+		
 		if (nS) {
+			$.stack();
 			$.wipe(1);
 			$[0] = nS; 
 		}
@@ -339,6 +374,7 @@ yS.fn = yS.prototype = {
 			pS = DOM.getPreviousSibling($[0]);
 
 		if (pS) {
+			$.stack();
 			$.wipe(1);
 			$[0] = pS; 
 		}
@@ -420,7 +456,7 @@ yS.fn = yS.prototype = {
 		return $;
 	},
 	
-	 
+	 /*
 	// reasons for beta,
 	// can't use dom obj, i failed guys
 	live: function(type, fn) {
@@ -446,7 +482,7 @@ yS.fn = yS.prototype = {
 		
 		return $;
 	},
-	
+	*/
 	dimension: function(o, type) {
 		var $ = this,
 			obj = {};
@@ -473,7 +509,7 @@ yS.fn = yS.prototype = {
 		return this.dimension(o, 'height');
 	},
 	
-	// hope for the best, my guess is that it sucks
+	// hope for the best, my guess is that attr sucks
 	attr: function(prop, val) {
 		var $ = this,
 			el;
@@ -599,32 +635,6 @@ yS.fn = yS.prototype = {
 		return o;
 	},
 	
-	// remap YAHOO's asyncRequest
-	ajax: function(o) {
-		var opts = this.extend({
-			cache: true,
-			data: null,
-			type: 'GET',
-			url: '/'
-		}, o);
-		
-		if(this.trim(opts.type) == 'GET') {
-			opts.url += '?' + opts.data;
-		}
-		
-		var callback = {
-			loading: function(o){ opts.loading.call(doc, o.responseText); },
-			success: function(o){ opts.success.call(doc, o.responseText); },
-			failure: function(o){ opts.error.call(doc, o.responseText); },
-			cache: opts.cache
-		}
-		
-		CON.startEvent.subscribe(callback.loading, callback);
-		var transaction = CON.asyncRequest(opts.type, opts.url, callback, opts.data); 
-			
-		return this;
-	},
-	
 	serialize: function() {
 		var tmp = '';
 		for (var i=0; i<this.length; i++)
@@ -634,24 +644,10 @@ yS.fn = yS.prototype = {
 		return tmp.substring(0, tmp.length-1);
 	},
 
-	namespace: function(name) {
-		if (name) {
-		    name=name.split(".");
-			if (!typeof name[0] == 'Object')
-				eval('window.' + name[0] + '= {}');
-		    var ns = win;
-		    for (var i =0; i<name.length; i++) {
-		    	var nm = name[i];
-				ns = ns[nm] || ( ns[nm] = {} ); 
-			}
-		}
-		return this;
-	},
-	
 	trim: function( text ) {
 		return (text || "").replace( /^\s+|\s+$/g, "" );
-	},
-	
+	}
+	/*
 	// used internally for now
 	animate: function(type,milisec,val,easing,fn){
 		var attr = {},
@@ -675,18 +671,22 @@ yS.fn = yS.prototype = {
 		
 		var myAnim = new YAHOO.util.Anim(this, attr, sec, ease);
 		myAnim.animate();
-		if (fn)
+		animStack.push(myAnim);
+		
+		
+		if (isFn(fn))
 			myAnim.onComplete.subscribe(fn);
 		
 		return $;
 	},
-	/* useless because they can only be used in one instance of yShort, fix coming soon
+	 //useless because they can only be used in one instance of yShort, fix coming soon
 	// stops all animation
 	stop: function() {
 		var $ = this;
-		for (var i=0; i< $.animStack.length; i++)
-			$.animStack[i].stop();
-		
+		for (var i=0; i< animStack.length; i++) {
+			animStack[i].stop();
+			
+		}
 		$.animStack = [];
 		
 		return $;
@@ -700,7 +700,6 @@ yS.fn = yS.prototype = {
 		
 		return false;
 	},
-	*/
 	
 	// starting the animations / effects
 	fadeIn: function(milisec, fn, easing){
@@ -725,7 +724,7 @@ yS.fn = yS.prototype = {
 			});
 		}
 		return $;
-	}
+	}*/
 }
 
 yS.fn.init.prototype = yS.fn;
@@ -762,7 +761,6 @@ yS.extend(yS, {
 	
 	map: function(o, fn) {
 		var arry = [];
-
 		for ( var i = 0; i < o.length; i++ ) 
 			arry.push(fn.call(o[i], o[i], i));
 
@@ -780,7 +778,51 @@ yS.extend(yS, {
 	
 	isFunction: isFn,
 	
-	trim: yS.fn.trim
+	trim: yS.fn.trim,
+	// remap YAHOO's asyncRequest
+	ajax: function(o) {
+		var opts = this.extend({
+			cache: true,
+			data: null,
+			type: 'GET',
+			url: '/'
+		}, o);
+		
+		if(this.trim(opts.type) == 'GET') {
+			opts.url += '?' + opts.data;
+		}
+		
+		var callback = {
+			loading: function(o){ opts.loading.call(doc, o.responseText); },
+			success: function(o){ opts.success.call(doc, o.responseText); },
+			failure: function(o){ opts.error.call(doc, o.responseText); },
+			cache: opts.cache
+		}
+		
+		CON.startEvent.subscribe(callback.loading, callback);
+		var transaction = CON.asyncRequest(opts.type, opts.url, callback, opts.data); 
+	},
+	
+	namespace: function(name) {
+		if (name) {
+		    name=name.split(".");
+			if (!typeof name[0] === 'object')
+				eval('window.' + name[0] + '= {}');
+		    var ns = win;
+		    for (var i =0; i<name.length; i++) {
+		    	var nm = name[i];
+				ns = ns[nm] || ( ns[nm] = {} ); 
+			}
+		}
+	},
+	
+	isIE6: function(){
+		return (document.body.style.maxHeight === undefined) ? true: false;
+	},
+	
+	isIE: function(){
+		return /*@cc_on true || @*/ false;
+	}
 });
 
-})(); //end anon
+})(); //end yShort anon

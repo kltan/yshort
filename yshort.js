@@ -26,7 +26,6 @@ var doc = document,
 	isNode = function(o) { return o.nodeType; },
 	isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) }, 	// not bullet proof, optimized for speed
 	get1stNode = function(o) { 	return isNode(o) ? o : SEL(o)[0]; },
-	//animStack = [],
 	shortCuts = UT.Shortcuts = {
 		DOM: DOM,
 		EVENT: EV,
@@ -40,22 +39,10 @@ var doc = document,
 // YAHOO.util.Short for global use
 var yS = UT.Short = function( qry, context ) {
 	// Constructor
-	return new (yS.fn).init( qry, context );
+	return new yS.fn.init( qry, context );
 };
 
 yS.fn = yS.prototype = {
-	// version number and also for yShort object detection
-	yShort: '0.1',
-	previousStack: [],
-	// length of array of nodes
-	length: null,
-	// live event functions
-	//liveStack: [],
-	// the initial selector that was used to create this yshort obj
-	selector: null,
-	// initial CSS qry that was passed to init
-	//qry: null,
-	
 	// constructor
 	init: function(qry, context) {
 		var $ = this,
@@ -102,10 +89,16 @@ yS.fn = yS.prototype = {
 				$[i] = result[i];
 			$.length = result.length;
 		}
-		
-		return $;
 	},
 	
+	// version number and also for yShort object detection
+	yShort: '0.1',
+	previousStack: [],
+	// length of array of nodes
+	length: null,
+	// the initial selector that was used to create this yshort obj
+	selector: null,
+		
 	// iterate through all of yShorts elements
 	each: function(o, fn) {
 		var $ = this;
@@ -646,14 +639,15 @@ yS.fn = yS.prototype = {
 
 	trim: function( text ) {
 		return (text || "").replace( /^\s+|\s+$/g, "" );
-	}
-	/*
+	},
+	
 	// used internally for now
 	animate: function(type,milisec,val,easing,fn){
 		var attr = {},
 			$ = this,
 			sec = milisec/1000 || 1,
-			ease = easing || YAHOO.util.Easing.easeNone;
+			ease = easing || YAHOO.util.Easing.easeNone,
+			counter = 0;
 		switch(type) {
 			case 'fadeTo': 
 				attr = {opacity: { to: val }};
@@ -669,13 +663,25 @@ yS.fn = yS.prototype = {
 				break;
 		}
 		
-		var myAnim = new YAHOO.util.Anim(this, attr, sec, ease);
-		myAnim.animate();
-		animStack.push(myAnim);
-		
-		
-		if (isFn(fn))
-			myAnim.onComplete.subscribe(fn);
+		var total = function(){
+			counter++;
+			if (counter == $.length) {
+				for(var i=0; i<$.length; i++)
+					$[i].yshortEffects.pop();
+
+				fn.call(doc);
+			}
+		}
+
+		for(var i=0; i<$.length; i++) {
+			// make yshortEffects expando an array if not exists
+			var fx = $[i].yshortEffects = $[i].yshortEffects || [];
+			// push new effects into node expando
+			fx.push(new YAHOO.util.Anim($[i], attr, sec, ease));
+			// animate the effects now
+			fx[fx.length-1].animate();
+			fx[fx.length-1].onComplete.subscribe(total);
+		};
 		
 		return $;
 	},
@@ -683,21 +689,26 @@ yS.fn = yS.prototype = {
 	// stops all animation
 	stop: function() {
 		var $ = this;
-		for (var i=0; i< animStack.length; i++) {
-			animStack[i].stop();
-			
+		for(var i=0; i<$.length; i++) {
+			var fx =$[i].yshortEffects;
+			if(fx)
+				for(var j=0; j<fx.length; j++) 
+					if(fx[j])
+						fx[j].stop();
 		}
-		$.animStack = [];
-		
+
 		return $;
 	},
 	// checks for animation, returns true or false
 	animated: function() {
-		var $ = this;
-		for (var i=0; i< $.animStack.length; i++)
-			if ($.animStack[i].isAnimated())
-				return true;
+		var $ = this,
+			fx = $[0].yshortEffects;
 		
+		if (fx)
+			for (var i=0; i< fx.length; i++)
+				if (fx[i].isAnimated())
+					return true;
+
 		return false;
 	},
 	
@@ -724,12 +735,16 @@ yS.fn = yS.prototype = {
 			});
 		}
 		return $;
-	}*/
+	}
 }
 
-yS.fn.init.prototype = yS.fn;
+// drop init from list of prototypes as it's the constructor
+for(prop in yS.fn) {
+	if (prop != 'init')
+		yS.fn.init.prototype[prop] = yS.fn[prop];
+}
 
-// define
+// define, for global ease of use
 yS.extend = yS.fn.extend;
 
 // execute to extend yShort
@@ -881,5 +896,5 @@ yS.extend(yS, {
 	
 	isSafari: yS.isWebkit
 
-}); // end yS.extend
+}); // end yS.extend 
 })(); //end yShort anon

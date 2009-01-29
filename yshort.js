@@ -1,4 +1,3 @@
-(function(){
 /*!
  * yShort 0.1 
  * http://github.com/kltan/yshort/tree/master
@@ -7,9 +6,10 @@
  * Copyright 2009 Kean Loong Tan
  * Parts of the code, like isArray, inArray, trim, grep are copyrighted by the jQuery foundation
  * Start date: 2008-12-17
- * Last update: 2009-01-27
+ * Last update: 2009-01-28
  */
- 
+
+(function(){
 var doc = document,
 	win = window,
 	UT = win.YAHOO.util,
@@ -18,17 +18,18 @@ var doc = document,
 	CON = UT.Connect,
 	SEL = win.Sizzle || UT.Selector.query,
 	EL = UT.Element,
-	FIL = function(qry, o){	return win.Sizzle ?	win.Sizzle.filter(o, qry): UT.Selector.filter(qry, o); },
+	FIL = function(qry, o){	return win.Sizzle ?	win.Sizzle.filter(o, qry): UT.Selector.filter(qry, o); }, // rigged to use either YUI selector or Sizzle
 	isFn = function(o) { return typeof o === "function" },
 	isStr = function(o) { return typeof o === "string" },
 	isObj = function(o) { return typeof o === "object" },
+	isArray = function(o){ return toString.call(obj) === "[object Array]" }, // not bullet proof, works if you don't do something crazy
 	isNode = function(o) { return o.nodeType; },
-	isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) },
+	isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) }, 	// not bullet proof, optimized for speed
 	get1stNode = function(o) { 	return isNode(o) ? o : SEL(o)[0]; },
-	animStack = [],
+	//animStack = [],
 	shortCuts = UT.Shortcuts = {
 		DOM: DOM,
-		EV: EV,
+		EVENT: EV,
 		CON: CON,
 		SEL: SEL,
 		EL: EL,
@@ -50,7 +51,7 @@ yS.fn = yS.prototype = {
 	length: null,
 	// live event functions
 	//liveStack: [],
-	// the selector that was used to create this yshort obj
+	// the initial selector that was used to create this yshort obj
 	selector: null,
 	// initial CSS qry that was passed to init
 	//qry: null,
@@ -70,15 +71,15 @@ yS.fn = yS.prototype = {
 			$[0] = qry;
 			$.length = 1;
 		}
-		// if object
+		// if object or yShort
 		else if (isObj(qry)) {
 			for(var i =0; i<qry.length; i++)
 				$[i] = qry[i];
 			$.length = qry.length;
 			$.selector = qry.selector || null;
-			$.previousStack = qry.previousStack || [],
+			$.previousStack = qry.previousStack || [];
 		}
-		// if function is passed, this before isHTML as it will also evaluate true
+		// if function is passed, this runs before isHTML as it will also evaluate true
 		else if (isFn(qry)) {
 			EV.onDOMReady(function(){ 
 				// on dom ready, we call the qry function and pass document as this, yShort as it's first argument
@@ -157,7 +158,7 @@ yS.fn = yS.prototype = {
 	},
 	
 	end: function(){
-		var $ = this,
+		var $ = yS(this),
 			temp = $.previousStack[$.previousStack.length-1];
 			
 		$.each(temp, function(i){
@@ -166,12 +167,11 @@ yS.fn = yS.prototype = {
 		$.wipe(temp.length);
 		$.previousStack.pop();
 		return $;
-		
 	},
 	
 	// returns the nth item in yShort
 	eq: function(num){
-		var $ = this;
+		var $ = yS(this);
 
 		$[0] = $.stack()[num];
 		$.wipe(1);
@@ -194,7 +194,7 @@ yS.fn = yS.prototype = {
 	},
 	
 	hasClass: function(str) {
-		return DOM.hasClass(this, str);
+		return DOM.hasClass(this[0], str);
 	},
 	
 	toggleClass: function(str) {
@@ -235,7 +235,7 @@ yS.fn = yS.prototype = {
 	},
 	
 	filter: function(qry) {
-		var $ = this,
+		var $ = yS(this),
 			els = FIL($, qry);
 
 		$.wipe(els.length);
@@ -256,7 +256,7 @@ yS.fn = yS.prototype = {
 	
 	// we just pass this to the selector filter and wrap them in :not
 	not: function(qry) {
-		var $ = this;
+		var $ = yS(this);
 		var els = FIL($, ":not("+qry+")");
 		$.wipe(els.length);
 		$.each(function(i){ $[i] = els[i]; });
@@ -267,7 +267,7 @@ yS.fn = yS.prototype = {
 	
 	add: function(qry) {
 		var els = [], 
-			$ =this;
+			$ = yS(this);
 
 		if (isNode(qry))
 			els[0] = qry;
@@ -286,7 +286,7 @@ yS.fn = yS.prototype = {
 	},
 	
 	children: function(qry) {
-		var $ = this,
+		var $ = yS(this),
 			els = [];
 
 		$.each(function(i){ 
@@ -311,7 +311,7 @@ yS.fn = yS.prototype = {
 	
 	parent: function(){
 		var els=[],
-			$ = this;
+			$ = yS(this);
 
 		$.each(function(i){
 			// cause we are concatenating node with array, see above difference with children method		
@@ -334,7 +334,7 @@ yS.fn = yS.prototype = {
 	
 	find: function(qry) {
 		var els = [],
-			$ = this;
+			$ = yS(this);
 
 		$.each(function(i){
 			els = els.concat(SEL(qry, $[i]));
@@ -355,7 +355,7 @@ yS.fn = yS.prototype = {
 	},
 	
 	next: function(){
-		var $ = this,
+		var $ = yS(this),
 			nS = DOM.getNextSibling($[0]);
 		
 		if (nS) {
@@ -370,7 +370,7 @@ yS.fn = yS.prototype = {
 	},
 	
 	prev: function(){
-		var $ =this,
+		var $ = yS(this),
 			pS = DOM.getPreviousSibling($[0]);
 
 		if (pS) {
@@ -618,7 +618,7 @@ yS.fn = yS.prototype = {
 	},
 	
 	clone: function(){
-		var $ = this,
+		var $ = (this),
 			node = $[0].cloneNode(true);
 		
 		$.wipe(1);
@@ -735,12 +735,24 @@ yS.extend = yS.fn.extend;
 // execute to extend yShort
 yS.extend(yS, {
 	
+	/*
+	* Mimicks jQuery but not using their code
+	*/
 	each: yS.fn.each,
 	
+	/*
+	* Shortest way to write make array, ownage
+	*/
 	makeArray: function(o){	return [].slice.call(o); },
 	
+	/*
+	* Returns unique, whether DOM or array, pretty decent algorithm
+	*/
 	unique: yS.fn.unique,
 	
+	/*
+	* Copied from jQuery
+	*/
 	grep: function(o, fn) {
 		var arry = [];
 		// Go through the array, only saving the items that pass the validator function
@@ -750,7 +762,10 @@ yS.extend(yS, {
 
 		return arry;
 	},
-	
+
+	/*
+	* Copied from jQuery
+	*/
 	inArray: function(el, o){
 		// prevent ie's window == document problem
 		for ( var i = 0; i < o.length; i++ )
@@ -758,7 +773,7 @@ yS.extend(yS, {
 				return i;
 		return -1;
 	},
-	
+
 	map: function(o, fn) {
 		var arry = [];
 		for ( var i = 0; i < o.length; i++ ) 
@@ -766,20 +781,29 @@ yS.extend(yS, {
 
 		return arry;
 	},
-	
+
 	merge: function(){
 		var o = [];
 		for ( var i = 0; i < arguments.length; i++ ) 
 			o = o.concat(arguments[i]);	
 		return o;
 	},
-	
-	isArray: function(o){ return toString.call(obj) === "[object Array]"; },
+
+	/*
+	* Copied from jQuery, original copyrighted of other origin
+	*/
+	isArray: isArray,
 	
 	isFunction: isFn,
 	
+	/*
+	* Copied from jQuery, original copyrighted of other origin
+	*/
 	trim: yS.fn.trim,
-	// remap YAHOO's asyncRequest
+
+	/*
+	* remap YUI's asyncRequest, write even shorter code, ownage
+	*/
 	ajax: function(o) {
 		var opts = this.extend({
 			cache: true,
@@ -788,7 +812,7 @@ yS.extend(yS, {
 			url: '/'
 		}, o);
 		
-		if(this.trim(opts.type) == 'GET') {
+		if(this.trim(opts.type) === 'GET') {
 			opts.url += '?' + opts.data;
 		}
 		
@@ -803,26 +827,59 @@ yS.extend(yS, {
 		var transaction = CON.asyncRequest(opts.type, opts.url, callback, opts.data); 
 	},
 	
+	/*
+	* Even better namespace function than YUI's namespace, support root as window obj
+	*/
 	namespace: function(name) {
 		if (name) {
+			// explode namespace with delimiter
 		    name=name.split(".");
-			if (!typeof name[0] === 'object')
-				eval('window.' + name[0] + '= {}');
+			// root is window obj
 		    var ns = win;
+			// loop through each level of the namespace
 		    for (var i =0; i<name.length; i++) {
+				// nm is current level name
 		    	var nm = name[i];
+				// if not exist, add current name as obj to parent level, assign ns (parent) to current
 				ns = ns[nm] || ( ns[nm] = {} ); 
 			}
 		}
 	},
+
+	/* 
+	* Feature detection of major browsers 
+	* In actual coding practice, you should only detect IE, IE6 or IE7 as they are the 3 lousy browsers
+	* In most cases you should be able to resolve other W3C compliant browser if you are standards compliant
+	*/
 	
 	isIE6: function(){
-		return (document.body.style.maxHeight === undefined) ? true: false;
+		return (doc.body.style.maxHeight === undefined) ? true: false;
 	},
 	
-	isIE: function(){
-		return /*@cc_on true || @*/ false;
-	}
-});
+	isIE7: function(){
+		return (doc.all && !win.opera && win.XMLHttpRequest) ? true : false;
+	},
 
+	isIE: function(){
+		return (win.ActiveXObject) ? true: false;
+	},
+	
+	isGecko: function(){
+		return (doc.getBoxObjectFor === undefined) ? false : true;
+	},
+	
+	isFirefox: yS.isGecko,
+	isMozilla: yS.isGecko,
+	
+	isOpera: function(){
+		return (win.opera) ? true : false;
+	},
+
+	isWebkit: function(){
+		return (navigator.taintEnabled) ? false : true;
+	},
+	
+	isSafari: yS.isWebkit
+
+}); // end yS.extend
 })(); //end yShort anon

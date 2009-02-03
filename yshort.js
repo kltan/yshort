@@ -2,11 +2,10 @@
  * yShort 0.1 
  * http://github.com/kltan/yshort/tree/master
  * A really short way to write YUI
- * Licensed under the MIT or GPL, choose a license that suits your needs
+ * Licensed under the MIT, BSD or GPL, choose a license that suits your needs
  * Copyright 2009 Kean Loong Tan
- * Parts of the code, like isArray, inArray, trim, grep are copyrighted by the jQuery foundation
  * Start date: 2008-12-17
- * Last update: 2009-01-28
+ * Last update: 2009-02-02
  */
 
 (function(){
@@ -18,13 +17,13 @@ var doc = document,
 	CON = UT.Connect,
 	SEL = win.Sizzle || UT.Selector.query,
 	EL = UT.Element,
-	FIL = function(qry, o){	return win.Sizzle ?	win.Sizzle.filter(o, qry): UT.Selector.filter(qry, o); }, // rigged to use either YUI selector or Sizzle
+	FIL = function(o, qry){	return win.Sizzle ?	win.Sizzle.filter(qry, o): UT.Selector.filter(o, qry); }, // rigged to use either YUI selector or Sizzle
 	isFn = function(o) { return typeof o === "function" },
 	isStr = function(o) { return typeof o === "string" },
 	isObj = function(o) { return typeof o === "object" },
-	isArray = function(o){ return toString.call(obj) === "[object Array]" }, // not bullet proof, works if you don't do something crazy
-	isNode = function(o) { return o.nodeType; },
-	isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) }, 	// not bullet proof, optimized for speed
+	isArray = function(o){ return toString.call(obj) === "[object Array]" }, // pretty stable
+	isNode = function(o) { return o.nodeType; }, // fastest node detection
+	isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) },
 	get1stNode = function(o) { 	return isNode(o) ? o : SEL(o)[0]; },
 	shortCuts = UT.Shortcuts = {
 		DOM: DOM,
@@ -52,7 +51,7 @@ yS.fn = yS.prototype = {
 			$[0]=doc;
 			$.length = 1;
 		}
-		
+	
 		// if nodes
 		else if (isNode(qry)) {
 			$[0] = qry;
@@ -81,6 +80,11 @@ yS.fn = yS.prototype = {
 			$.length=1;
 		}
 		
+		else if (isStr(qry) && !yS.trim(qry).length) {
+			$[0]=doc;
+			$.length = 1;
+		}
+		
 		// if CSS query
 		else if (isStr(qry)) {
 			$.selector = qry;
@@ -102,29 +106,15 @@ yS.fn = yS.prototype = {
 	// iterate through all of yShorts elements
 	each: function(o, fn) {
 		var $ = this;
-		if (fn)
+		if (fn && isFn(fn))
 			for (var i=0; i < o.length; i++) {
 				fn.call(o[i], i);
 			}
-		
 		else if (isFn(o))
-			for (var i=0; i < $.length; i++) {
+			for (var i=0; i < $.length; i++)
 				o.call($[i], i);
-			}
 		
 		return $;
-	},
-	
-	// returns a unique set of array
-	unique : function(a) {
-		var r = [];
-		o:for(var i = 0, n = a.length; i < n; i++) {
-			for(var x = i + 1 ; x < n; x++) {
-				if(a[x]==a[i]) continue o;
-			}
-			r[r.length] = a[i];
-		}
-		return r;
 	},
 	
 	// destroys elements on and after array[n]
@@ -138,6 +128,7 @@ yS.fn = yS.prototype = {
 		$.length = n;
 	},
 	
+	// push in stack and wipe everything in this
 	stack: function(){
 		var temp = {}, $ = this;
 		temp.length = $.length;
@@ -150,6 +141,7 @@ yS.fn = yS.prototype = {
 		return temp;
 	},
 	
+	//end pops previous stacks and put in this	
 	end: function(){
 		var $ = yS(this),
 			temp = $.previousStack[$.previousStack.length-1];
@@ -172,6 +164,7 @@ yS.fn = yS.prototype = {
 		return $;
 	},
 	
+	// get an array of nodes (convert jQuery into nodes)
 	get: function(num) {
 		return (num === 0 || num) ? [].slice.call(this, num, num+1) : [].slice.call(this);
 	},
@@ -232,6 +225,7 @@ yS.fn = yS.prototype = {
 			els = FIL($, qry);
 
 		$.wipe(els.length);
+		$.stack();
 		$.each(function(i){ $[i] = els[i] });
 	
 		return $;
@@ -313,7 +307,7 @@ yS.fn = yS.prototype = {
 		
 		$.stack();
 
-		els = $.unique(els);
+		els = yS.unique(els);
 		
 		// we wipe first, so we reduce 'this' length for easy looping to match with els
 		$.wipe(els.length);
@@ -325,6 +319,35 @@ yS.fn = yS.prototype = {
 		return $;
 	},
 	
+	ancestors: function(str){
+		var els=[],
+			$ = yS(this);
+			
+		$.each(function(i){
+			var temp = $[i];
+			while(temp){
+				els.push(temp);
+				temp=temp.parentNode;
+			}
+		});
+
+		els = FIL(els, str);
+		els = yS.unique(els);
+		$.stack();
+
+		els = yS.unique(els);
+		
+		// we wipe first, so we reduce 'this' length for easy looping to match with els
+		$.wipe(els.length);
+		
+		$.each(function(i){
+			$[i] = els[i];
+		});
+
+		return $;
+	},
+	
+	
 	find: function(qry) {
 		var els = [],
 			$ = yS(this);
@@ -335,7 +358,7 @@ yS.fn = yS.prototype = {
 		
 		$.stack();
 		
-		els = $.unique(els);
+		els = yS.unique(els);
 		
 		// we wipe first, so we reduce 'this' length for easy looping to match with els
 		$.wipe(els.length);
@@ -450,8 +473,7 @@ yS.fn = yS.prototype = {
 	},
 	
 	 /*
-	// reasons for beta,
-	// can't use dom obj, i failed guys
+	// not implementing yet
 	live: function(type, fn) {
 		var $ = this,
 			idx = fn.toString().substr(0, 50);
@@ -642,36 +664,16 @@ yS.fn = yS.prototype = {
 	},
 	
 	// used internally for now
-	animate: function(type,milisec,val,easing,fn){
-		var attr = {},
-			$ = this,
+	animate: function(attr, milisec, fn, easing){
+		var $ = this,
 			sec = milisec/1000 || 1,
 			ease = easing || YAHOO.util.Easing.easeNone,
-			counter = 0;
-		switch(type) {
-			case 'fadeTo': 
-				attr = {opacity: { to: val }};
-				break;    
-			case 'fadeIn':
-				attr = {opacity: { from:0, to: 1 }};
-				break;
-			case 'fadeOut':
-				attr = { opacity: { to: 0 } };
-				break;
-			default:
-				attr = type;
-				break;
-		}
-		
-		var total = function(){
-			counter++;
-			if (counter == $.length) {
-				for(var i=0; i<$.length; i++)
-					$[i].yshortEffects.pop();
-
-				fn.call(doc);
-			}
-		}
+			counter = 0,
+			total = function(){// total adds up when a function has completed animating
+				counter++;
+				if (counter === $.length)
+					fn.call(doc);
+			};
 
 		for(var i=0; i<$.length; i++) {
 			// make yshortEffects expando an array if not exists
@@ -713,27 +715,36 @@ yS.fn = yS.prototype = {
 	},
 	
 	// starting the animations / effects
-	fadeIn: function(milisec, fn, easing){
-		return this.animate('fadeIn', milisec, null, easing, fn);
+	fadeIn: function(dur, fn, easing){
+		return this.animate({opacity: { from:0, to: 1 }}, dur, null, easing, fn);
 	},
 	
-	fadeOut: function(milisec, fn, easing){
-		return this.animate('fadeOut', milisec, null, easing, fn);
+	fadeOut: function(dur, fn, easing){
+		return this.animate({ opacity: { to: 0 } }, dur, null, easing, fn);
 	},
 
-	fadeTo: function(val, milisec, fn, easing){
-		return this.animate('fadeTo', milisec, val, easing, fn);
+	fadeTo: function(val, dur, fn, easing){
+		return this.animate({opacity: { to: val }}, dur, val, easing, fn);
 	},
 		
-	fadeColor: function(o, dur){
-		var $ = this;
-		duration = dur/1000 || 1;
-		if (isObj(o)) {
+	fadeColor: function(attr, dur){
+		var $ = this,
+			duration = dur/1000 || 1,
+			counter = 0,
+			total = function(){// total adds up when a function has completed animating
+				counter++;
+				if (counter === $.length)
+					fn.call(doc);
+			};
+		
+		if (isObj(attr)) {
 			$.each(function(i){
-				var anim = new UT.ColorAnim($, o, duration);
-				anim.animate();
+				var fx = $[i].yshortEffects = $[i].yshortEffects || [];
+				fx.push(new UT.ColorAnim($[i], attr, duration));
+				fx[fx.length-1].animate();
 			});
 		}
+		
 		return $;
 	}
 }
@@ -763,7 +774,17 @@ yS.extend(yS, {
 	/*
 	* Returns unique, whether DOM or array, pretty decent algorithm
 	*/
-	unique: yS.fn.unique,
+	// returns a unique set of array
+	unique : function(a) {
+		var r = [];
+		o:for(var i = 0, n = a.length; i < n; i++) {
+			for(var x = i + 1 ; x < n; x++) {
+				if(a[x]==a[i]) continue o;
+			}
+			r[r.length] = a[i];
+		}
+		return r;
+	},
 	
 	/*
 	* Copied from jQuery
@@ -862,9 +883,7 @@ yS.extend(yS, {
 	},
 
 	/* 
-	* Feature detection of major browsers 
-	* In actual coding practice, you should only detect IE, IE6 or IE7 as they are the 3 lousy browsers
-	* In most cases you should be able to resolve other W3C compliant browser if you are standards compliant
+	* Feature detection of major browsers, code is more future proof
 	*/
 	
 	isIE6: function(){
@@ -876,15 +895,12 @@ yS.extend(yS, {
 	},
 
 	isIE: function(){
-		return (win.ActiveXObject) ? true: false;
+		return (win.ActiveXObject && doc.all) ? true: false;
 	},
 	
 	isGecko: function(){
 		return (doc.getBoxObjectFor === undefined) ? false : true;
 	},
-	
-	isFirefox: yS.isGecko,
-	isMozilla: yS.isGecko,
 	
 	isOpera: function(){
 		return (win.opera) ? true : false;
@@ -892,9 +908,7 @@ yS.extend(yS, {
 
 	isWebkit: function(){
 		return (navigator.taintEnabled) ? false : true;
-	},
-	
-	isSafari: yS.isWebkit
+	}
 
 }); // end yS.extend 
 })(); //end yShort anon

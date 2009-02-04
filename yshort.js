@@ -672,7 +672,7 @@ yS.fn = yS.prototype = {
 			total = function(){// total adds up when a function has completed animating
 				counter++;
 				if (counter === $.length)
-					fn.call(doc);
+					fn.call($);
 			};
 
 		for(var i=0; i<$.length; i++) {
@@ -716,15 +716,15 @@ yS.fn = yS.prototype = {
 	
 	// starting the animations / effects
 	fadeIn: function(dur, fn, easing){
-		return this.animate({opacity: { from:0, to: 1 }}, dur, null, easing, fn);
+		return this.animate({opacity: { from:0, to: 1 }}, dur, fn, easing);
 	},
 	
 	fadeOut: function(dur, fn, easing){
-		return this.animate({ opacity: { to: 0 } }, dur, null, easing, fn);
+		return this.animate({ opacity: { to: 0 } }, dur, fn, easing);
 	},
 
 	fadeTo: function(val, dur, fn, easing){
-		return this.animate({opacity: { to: val }}, dur, val, easing, fn);
+		return this.animate({opacity: { to: val }}, dur, fn, easing);
 	},
 		
 	fadeColor: function(attr, dur){
@@ -849,7 +849,8 @@ yS.extend(yS, {
 		}, o);
 		
 		if(this.trim(opts.type) === 'GET') {
-			opts.url += '?' + opts.data;
+			if (opts.data)
+				opts.url += '?' + opts.data;
 		}
 		
 		var callback = {

@@ -5,26 +5,40 @@
  * Licensed under the MIT, BSD or GPL, choose a license that suits your needs
  * Copyright 2009 Kean Loong Tan
  * Start date: 2008-12-17
- * Last update: 2009-02-02
+ * Last update: 2009-02-05
  */
 
 (function(){
+// caching of even natives to improve reference speed + YUI compressor friendly
 var doc = document,
 	win = window,
+	undefined,
 	UT = win.YAHOO.util,
 	DOM = UT.Dom,
 	EV = UT.Event,
 	CON = UT.Connect,
 	SEL = win.Sizzle || UT.Selector.query,
 	EL = UT.Element,
-	FIL = function(o, qry){	return win.Sizzle ?	win.Sizzle.filter(qry, o): UT.Selector.filter(o, qry); }, // rigged to use either YUI selector or Sizzle
+	// use either YUI or Sizzle, you gain additional selector and superior selecting speed by using Sizzle, sizzlejs.com
+	FIL = function(o, qry){	return win.Sizzle ?	win.Sizzle.filter(qry, o): UT.Selector.filter(o, qry); },
+	// check for types
 	isFn = function(o) { return typeof o === "function" },
 	isStr = function(o) { return typeof o === "string" },
+	// array is also detected as object
 	isObj = function(o) { return typeof o === "object" },
-	isArray = function(o){ return toString.call(obj) === "[object Array]" }, // pretty stable
+	// isArray method founded by Mark Miller or kangax
+	isArray = function(o){ return toString.call(obj) === "[object Array]" }, // pretty solid
+	// from jQuery and quirksmode blog
 	isNode = function(o) { return o.nodeType; }, // fastest node detection
+	// from jQuery and quirksmode blog
 	isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) },
+	// from yShort
 	get1stNode = function(o) { 	return isNode(o) ? o : SEL(o)[0]; },
+	// add random number to prevent collision, inspired by John Resig's DOM is a mess presentation
+	ySrandom = Math.floor(Math.random() * 100000),
+	yshortdata = 'yshortdata',
+	yshorteffects ='yshorteffects',
+	// remapping some of YAHOO's ridiculously long namespace
 	shortCuts = UT.Shortcuts = {
 		DOM: DOM,
 		EVENT: EV,
@@ -42,10 +56,12 @@ var yS = UT.Short = function( qry, context ) {
 };
 
 yS.fn = yS.prototype = {
-	// constructor
+	// constructor, determines the query passed in to yShort
 	init: function(qry, context) {
+		// using $ = this provides better minification, probably faster reference to this, unproven
 		var $ = this,
 			context = context || doc;
+		
 		// if empty, we just make document the our first item in array
 		if (!qry) {
 			$[0]=doc;
@@ -57,29 +73,38 @@ yS.fn = yS.prototype = {
 			$[0] = qry;
 			$.length = 1;
 		}
-		// if object or yShort
+		
+		// if object or yShort object, try to do a deep copy
 		else if (isObj(qry)) {
 			for(var i =0; i<qry.length; i++)
 				$[i] = qry[i];
 			$.length = qry.length;
 			$.selector = qry.selector || null;
-			$.previousStack = qry.previousStack || [];
-		}
-		// if function is passed, this runs before isHTML as it will also evaluate true
-		else if (isFn(qry)) {
-			EV.onDOMReady(function(){ 
-				// on dom ready, we call the qry function and pass document as this, yShort as it's first argument
-				qry.call(doc, yS, shortCuts);
-			});
-		}		
-		// if HTML
-		else if (isHTML(qry)) {
-			var x = doc.createElement('YSHORT');
-			x.innerHTML= qry;
-			$[0] = x;
-			$.length=1;
 		}
 		
+		// if function is passed, this runs before isHTML as it will also evaluate true
+		// onDOMready, we call the qry function and pass win as this, yShort as it's first argument
+		else if (isFn(qry)) {
+			EV.onDOMReady(function(){ 
+				qry.call(win, yS, shortCuts);
+			});
+		}		
+		// if HTML, create nodes from it and push into yShort object, then we can manipulate the nodes with yShort methods
+		else if (isHTML(qry)) {
+			var c = 0,
+			x = doc.createElement('YSHORT');
+			x.innerHTML= qry;
+
+			for (var i=0; i< x.childNodes.length; i++) {
+				if(x.childNodes[i].nodeType === 1) {
+					$[c] = x.childNodes[i];
+					c++;
+				}
+			}
+			$.length=c;
+		}
+		
+		// if a black space has been passed
 		else if (isStr(qry) && !yS.trim(qry).length) {
 			$[0]=doc;
 			$.length = 1;
@@ -93,26 +118,27 @@ yS.fn = yS.prototype = {
 				$[i] = result[i];
 			$.length = result.length;
 		}
+		$.previousStack = [];
 	},
 	
 	// version number and also for yShort object detection
 	yShort: '0.1',
-	previousStack: [],
-	// length of array of nodes
+	//previousStack: [],
+	// numbers of nodes inside current yShort obj
 	length: null,
-	// the initial selector that was used to create this yshort obj
-	selector: null,
-		
-	// iterate through all of yShorts elements
+	// the initial selector that was used to create this yshort obj, useful for live and die
+	//selector: null,
+	// iterate through all of yShorts elements or o elements
 	each: function(o, fn) {
 		var $ = this;
-		if (fn && isFn(fn))
-			for (var i=0; i < o.length; i++) {
-				fn.call(o[i], i);
-			}
-		else if (isFn(o))
+
+		if (isFn(o))
 			for (var i=0; i < $.length; i++)
 				o.call($[i], i);
+		
+		else if (fn && isFn(fn))
+			for (var i=0; i < o.length; i++)
+				fn.call(o[i], i);
 		
 		return $;
 	},
@@ -129,42 +155,41 @@ yS.fn = yS.prototype = {
 	},
 	
 	// push in stack and wipe everything in this
-	stack: function(){
-		var temp = {}, $ = this;
-		temp.length = $.length;
-		$.each(function(i){
-			temp[i] = $[i];
-		});
-		$.previousStack.push(temp);
-		$.wipe();
+	stack: function(prev){
+		//var temp = {}, 
+		var $ = this;
+		//temp.length = $.length;
 		
-		return temp;
+		
+		/*$.each(function(i){
+			temp[i] = $[i];
+		});*/
+		
+		$.previousStack.push(prev);
+		//$.wipe();
+		return $;
 	},
 	
 	//end pops previous stacks and put in this	
 	end: function(){
-		var $ = yS(this),
-			temp = $.previousStack[$.previousStack.length-1];
-			
-		$.each(temp, function(i){
-			$[i] = temp[i];	
-		});
-		$.wipe(temp.length);
-		$.previousStack.pop();
-		return $;
+		var $ = this,
+			ret = $.previousStack[0];
+
+		return ret;
 	},
 	
 	// returns the nth item in yShort
 	eq: function(num){
 		var $ = yS(this);
 
-		$[0] = $.stack()[num];
+		$[0] = this[num];
+		$.stack(this);
 		$.wipe(1);
 
 		return $;
 	},
 	
-	// get an array of nodes (convert jQuery into nodes)
+	// get an array of nodes (convert yShort into array)
 	get: function(num) {
 		return (num === 0 || num) ? [].slice.call(this, num, num+1) : [].slice.call(this);
 	},
@@ -196,6 +221,7 @@ yS.fn = yS.prototype = {
 		return this;
 	},
 	
+	// manipulate innerHTML of nodes or return innerHTML of first node
 	html: function(str) {
 		var $ = this;
 
@@ -207,9 +233,11 @@ yS.fn = yS.prototype = {
 		return $;
 	},
 	
+	// manipulate value of nodes or return value of first node
 	val: function(str) {
 		var $ = this;
-		if (str==='' || String(str).length)
+		// stringent check on integer or empty string
+		if (str === '' || String(str).length)
 			$.each(function(i){
 				$[i].value = str;
 			});
@@ -220,12 +248,13 @@ yS.fn = yS.prototype = {
 		return $;
 	},
 	
+	// filter current nodes based on the CSS rules
 	filter: function(qry) {
 		var $ = yS(this),
 			els = FIL($, qry);
-
+		// wipe plus reset length
 		$.wipe(els.length);
-		$.stack();
+		$.stack(this);
 		$.each(function(i){ $[i] = els[i] });
 	
 		return $;
@@ -284,7 +313,7 @@ yS.fn = yS.prototype = {
 		if (qry)
 			els = FIL(els, qry);
 		
-		$.stack();
+		$.stack(this);
 		
 		// we wipe first, so we increase 'this' length for easy looping to match with els
 		$.wipe(els.length);
@@ -305,7 +334,7 @@ yS.fn = yS.prototype = {
 			els[i] = $[i].parentNode;
 		});
 		
-		$.stack();
+		$.stack(this);
 
 		els = yS.unique(els);
 		
@@ -333,7 +362,7 @@ yS.fn = yS.prototype = {
 
 		els = FIL(els, str);
 		els = yS.unique(els);
-		$.stack();
+		$.stack(this);
 
 		els = yS.unique(els);
 		
@@ -356,7 +385,7 @@ yS.fn = yS.prototype = {
 			els = els.concat(SEL(qry, $[i]));
 		});
 		
-		$.stack();
+		$.stack(this);
 		
 		els = yS.unique(els);
 		
@@ -375,7 +404,7 @@ yS.fn = yS.prototype = {
 			nS = DOM.getNextSibling($[0]);
 		
 		if (nS) {
-			$.stack();
+			$.stack(this);
 			$.wipe(1);
 			$[0] = nS; 
 		}
@@ -390,7 +419,7 @@ yS.fn = yS.prototype = {
 			pS = DOM.getPreviousSibling($[0]);
 
 		if (pS) {
-			$.stack();
+			$.stack(this);
 			$.wipe(1);
 			$[0] = pS; 
 		}
@@ -420,11 +449,11 @@ yS.fn = yS.prototype = {
 		var $ =this;
 		if (value)
 			$.each(function(i){
-				if(!$[i].yshortdata) $[i].yshortdata = [];
-				$[i].yshortdata[key] = value;
+				if(!$[i][yshortdata+ySrandom]) $[i][yshortdata+ySrandom] = [];
+				$[i][yshortdata+ySrandom][key] = value;
 			});
 		else if (key)
-			return $[0].yshortdata[key];
+			return $[0][yshortdata+ySrandom][key];
 			
 		return $;
 	},
@@ -432,11 +461,11 @@ yS.fn = yS.prototype = {
 	removeData: function(key) {
 		var $ = this;
 		$.each(function(i){
-			if($[i].yshortdata) {
+			if($[i][yshortdata+ySrandom]) {
 				if(key) 
-					delete $[i].yshortdata[key];
+					delete $[i][yshortdata+ySrandom][key];
 				else
-					delete $[i].yshortdata;			
+					delete $[i][yshortdata+ySrandom];			
 			}
 		});
 
@@ -558,36 +587,30 @@ yS.fn = yS.prototype = {
 	appendTo: function(o) {
 		var tmp = get1stNode(o),
 			$ = this;
-
+			fragment = doc.createDocumentFragment();
+			
 		if (tmp) {
 			$.each(function(i){
-				if ($[i].tagName== 'YSHORT') {
-					while($[i].childNodes.length)
-						tmp.appendChild($[i].childNodes[0]);
-				}
-				else
-					tmp.appendChild($[i]);
+				fragment.appendChild($[i]);
 			});
+			tmp.appendChild(fragment);
 		}
+		
 		
 		return $;
 	},
 	
 	prependTo: function(o) {
 		var tmp = get1stNode(o),
-			$ = this;
-
+			$ = this,
+			fragment = doc.createDocumentFragment();
+			
 		if (tmp) {
-			var first = tmp.firstChild;
 			$.each(function(i){
-				if ($[i].tagName== 'YSHORT') {
-					while($[i].childNodes.length)
-						tmp.insertBefore($[i].childNodes[0], first);
-					
-				}
-				else
-					tmp.insertBefore($[i],first);
+				fragment.appendChild($[i]);
 			});
+			var first = tmp.firstChild;
+			tmp.insertBefore(fragment, first);
 		}
 		
 		return $;
@@ -595,49 +618,43 @@ yS.fn = yS.prototype = {
 	
 	insertBefore: function(o){
 		var tmp = get1stNode(o),
-			$ = this;
+			$ = this,
+			fragment = doc.createDocumentFragment();
 
 		if (tmp) {
-			var parent = tmp.parentNode;
 			$.each(function(i){
-				if ($[i].tagName== 'YSHORT') {
-					while($[i].childNodes.length)
-						parent.insertBefore($[i].childNodes[0], tmp);
-				}
-				else {
-					parent.insertBefore($.next($[i]), tmp);
-				}
+				fragment.appendChild($[i]);
 			});
+			var parent = tmp.parentNode;
+			parent.insertBefore(fragment, tmp);
 		}
 		return $;
 	},
 	
 	insertAfter: function(o){
 		var tmp = get1stNode(o),
-			$ = this;
+			$ = this,
+			fragment = doc.createDocumentFragment();
 		
 		if (tmp) {
-			var parent = tmp.parentNode,
-				next = tmp.nextSibling;
 			$.each(function(i){
-				if ($[i].tagName== 'YSHORT') {
-					while($[i].childNodes.length)
-						parent.insertBefore($[i].childNodes[0], next);
-				}
-				else {
-					parent.insertBefore($[i], next);
-				}
+				fragment.appendChild($[i]);
 			});
+			
+			var parent = tmp.parentNode,
+				next = DOM.getNextSibling(tmp);
+			parent.insertBefore(fragment, next);
 		}
 		return $;
 	},
 	
 	clone: function(){
-		var $ = (this),
-			node = $[0].cloneNode(true);
-		
+		var $ = yS(this),
+			cloned = $[0].cloneNode(true);
+
+		$.stack(this);
 		$.wipe(1);
-		$[0] = node;
+		$[0] = cloned;
 		
 		return $;
 	},
@@ -653,7 +670,7 @@ yS.fn = yS.prototype = {
 	serialize: function() {
 		var tmp = '';
 		for (var i=0; i<this.length; i++)
-			if (this[i].name)
+			if (this[i].name && this[i].value)
 				tmp += this[i].name + '=' + this[i].value + '&';
 		// rtrim the & symbol
 		return tmp.substring(0, tmp.length-1);
@@ -677,7 +694,7 @@ yS.fn = yS.prototype = {
 
 		for(var i=0; i<$.length; i++) {
 			// make yshortEffects expando an array if not exists
-			var fx = $[i].yshortEffects = $[i].yshortEffects || [];
+			var fx = $[i][yshorteffects+ySrandom] = $[i][yshorteffects+ySrandom] || [];
 			// push new effects into node expando
 			fx.push(new YAHOO.util.Anim($[i], attr, sec, ease));
 			// animate the effects now
@@ -692,7 +709,7 @@ yS.fn = yS.prototype = {
 	stop: function() {
 		var $ = this;
 		for(var i=0; i<$.length; i++) {
-			var fx =$[i].yshortEffects;
+			var fx =$[i][yshorteffects+ySrandom];
 			if(fx)
 				for(var j=0; j<fx.length; j++) 
 					if(fx[j])
@@ -704,7 +721,7 @@ yS.fn = yS.prototype = {
 	// checks for animation, returns true or false
 	animated: function() {
 		var $ = this,
-			fx = $[0].yshortEffects;
+			fx = $[0][yshorteffects+ySrandom];
 		
 		if (fx)
 			for (var i=0; i< fx.length; i++)
@@ -739,7 +756,7 @@ yS.fn = yS.prototype = {
 		
 		if (isObj(attr)) {
 			$.each(function(i){
-				var fx = $[i].yshortEffects = $[i].yshortEffects || [];
+				var fx = $[i][yshorteffects+ySrandom] = $[i][yshorteffects+ySrandom] || [];
 				fx.push(new UT.ColorAnim($[i], attr, duration));
 				fx[fx.length-1].animate();
 			});
@@ -779,7 +796,7 @@ yS.extend(yS, {
 		var r = [];
 		o:for(var i = 0, n = a.length; i < n; i++) {
 			for(var x = i + 1 ; x < n; x++) {
-				if(a[x]==a[i]) continue o;
+				if(a[x]===a[i]) continue o;
 			}
 			r[r.length] = a[i];
 		}

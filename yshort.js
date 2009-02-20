@@ -1,51 +1,48 @@
 /*!
- * yShort 0.1 
+ * yShort 0.2 
  * http://github.com/kltan/yshort/tree/master
- * A really short way to write YUI
- * Licensed under the MIT, BSD or GPL, choose a license that suits your needs
- * Copyright 2009 Kean Loong Tan
+ * A really short way to write YUI 2.7.x
+ * Licensed under the MIT and GPL, choose a license that suits your needs
+ * Copyright 2009 Kean Tan
  * Start date: 2008-12-17
- * Last update: 2009-02-05
+ * Last update: 2009-02-19
  */
 
 (function(){
-// caching of even natives to improve reference speed + YUI compressor friendly
+// caching of even natives to improve reference speed in non-JIT bytecode javascript engines
 var doc = document,
 	win = window,
-	undefined,
-	UT = win.YAHOO.util,
-	DOM = UT.Dom,
-	EV = UT.Event,
-	CON = UT.Connect,
-	SEL = win.Sizzle || UT.Selector.query,
-	EL = UT.Element,
-	// use either YUI or Sizzle, you gain additional selector and superior selecting speed by using Sizzle, sizzlejs.com
+	nav = navigator,
+	undefined, // speeding up undefined
+	myToString = Object.prototype.toString.call, // type detection function call
+	UT = win.YAHOO.util, // YAHOO.util
+	DOM = UT.Dom, // YAHOO.util.Dom
+	EV = UT.Event, // YAHOO.util.Event
+	CON = UT.Connect, // YAHOO.util.Connect
+	SEL = win.Sizzle || UT.Selector.query, // Sizzle or YAHOO.util.Selector.query
+	EL = UT.Element, // YAHOO.util.Element
 	FIL = function(o, qry){	return win.Sizzle ?	win.Sizzle.filter(qry, o): UT.Selector.filter(o, qry); },
+	
 	// check for types
-	isFn = function(o) { return typeof o === "function" },
-	isStr = function(o) { return typeof o === "string" },
-	// array is also detected as object
-	isObj = function(o) { return typeof o === "object" },
-	// isArray method founded by Mark Miller or kangax
-	isArray = function(o){ return toString.call(obj) === "[object Array]" }, // pretty solid
-	// from jQuery and quirksmode blog
+	isFn = function(o) { return typeof o == "function" },
+	isStr = function(o) { return typeof o == "string" },
+	isObj = function(o) { return typeof o == "object" }, // array is also detected as object
 	isNode = function(o) { return o.nodeType; }, // fastest node detection
-	// from jQuery and quirksmode blog
-	isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) },
-	// from yShort
-	get1stNode = function(o) { 	return isNode(o) ? o : SEL(o)[0]; },
-	// add random number to prevent collision, inspired by John Resig's DOM is a mess presentation
-	ySrandom = Math.floor(Math.random() * 100000),
-	yshortdata = 'yshortdata',
-	yshorteffects ='yshorteffects',
-	// remapping some of YAHOO's ridiculously long namespace
-	shortCuts = UT.Shortcuts = {
-		DOM: DOM,
-		EVENT: EV,
-		CON: CON,
-		SEL: SEL,
-		EL: EL,
-		GET: UT.Get
+	isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) }, // lazy HTML detection
+	
+	get1stNode = function(o) { 	return isNode(o) ? o : SEL(o)[0]; }, // yShort internal method
+	ySrandom = Math.floor(Math.random() * 100000), // add random number to prevent collision
+	yshortdata = 'yshortdata', // for data() use
+	yshorteffects ='yshorteffects', // for animate() use
+	
+	// remapping some YUI namespace
+	shortcuts = YAHOO.util.Shortcuts = {
+		DOM: DOM, // Y.DOM -> YAHOO.util.Dom
+		EVENT: EV, // Y.EVENT -> YAHOO.util.Event
+		CONNECT: CON, // Y.CONNECT -> YAHOO.util.Connect
+		QUERY: SEL, // Y.QUERY -> YAHOO.util.Selector.query
+		EL: EL,  // Y.ELEMENT -> YAHOO.util.Element
+		GET: UT.Get // Y.GET -> YAHOO.util.Get
 	};
 
 // yS for internal use 
@@ -56,9 +53,8 @@ var yS = UT.Short = function( qry, context ) {
 };
 
 yS.fn = yS.prototype = {
-	// constructor, determines the query passed in to yShort
+	// constructor, determines what to do with the query passed in
 	init: function(qry, context) {
-		// using $ = this provides better minification, probably faster reference to this, unproven
 		var $ = this,
 			context = context || doc;
 		
@@ -74,7 +70,7 @@ yS.fn = yS.prototype = {
 			$.length = 1;
 		}
 		
-		// if object or yShort object, try to do a deep copy
+		// if object or yShort object, oops some object does not have length.. TODO
 		else if (isObj(qry)) {
 			for(var i =0; i<qry.length; i++)
 				$[i] = qry[i];
@@ -83,10 +79,11 @@ yS.fn = yS.prototype = {
 		}
 		
 		// if function is passed, this runs before isHTML as it will also evaluate true
-		// onDOMready, we call the qry function and pass win as this, yShort as it's first argument
+		// onDOMready, we call the qry function and pass window object as the calling object, 
+		// YAHOO.util.Short as it's first argument and YAHOO.util.Shortcuts as second
 		else if (isFn(qry)) {
 			EV.onDOMReady(function(){ 
-				qry.call(win, yS, shortCuts);
+				qry.call(win, yS, shortcuts);
 			});
 		}		
 		// if HTML, create nodes from it and push into yShort object, then we can manipulate the nodes with yShort methods
@@ -104,8 +101,8 @@ yS.fn = yS.prototype = {
 			$.length=c;
 		}
 		
-		// if a black space has been passed
-		else if (isStr(qry) && !yS.trim(qry).length) {
+		// if blank spaces have been passed
+		else if (!yS.trim(qry).length) {
 			$[0]=doc;
 			$.length = 1;
 		}
@@ -118,28 +115,37 @@ yS.fn = yS.prototype = {
 				$[i] = result[i];
 			$.length = result.length;
 		}
+		// things added/created in init constructor is a new instance
 		$.previousStack = [];
+
 	},
 	
+	/****************************************************************
+	 * all the members below are shared amongs all yShort objects,  *
+	 * you change one, they affect ALL YAHOO.util.Short objects     *
+	 ****************************************************************/
+	
 	// version number and also for yShort object detection
-	yShort: '0.1',
-	//previousStack: [],
+	yShort: '0.2',
 	// numbers of nodes inside current yShort obj
 	length: null,
 	// the initial selector that was used to create this yshort obj, useful for live and die
-	//selector: null,
-	// iterate through all of yShorts elements or o elements
+	selector: null,
+	// iterate through all of yShorts elements or o's elements
 	each: function(o, fn) {
 		var $ = this;
-
-		if (isFn(o))
+		
+		// no vigorous check, let there be errors if user pass something out of the ordinary
+		if (!fn)
 			for (var i=0; i < $.length; i++)
-				o.call($[i], i);
-		
-		else if (fn && isFn(fn))
+				o.call($[i], i, $[i]);
+		//
+		else {
+			if (!o.yShort && yS.isObject(o))
+				o = yS.makeArray(o); // if not array or yShort object, we need it to be an array
 			for (var i=0; i < o.length; i++)
-				fn.call(o[i], i);
-		
+				fn.call(o[i], i, $[i]);
+		}
 		return $;
 	},
 	
@@ -152,21 +158,14 @@ yS.fn = yS.prototype = {
 			delete $[i];
 
 		$.length = n;
+		return $;
 	},
 	
 	// push in stack and wipe everything in this
 	stack: function(prev){
-		//var temp = {}, 
 		var $ = this;
-		//temp.length = $.length;
-		
-		
-		/*$.each(function(i){
-			temp[i] = $[i];
-		});*/
-		
 		$.previousStack.push(prev);
-		//$.wipe();
+		
 		return $;
 	},
 	
@@ -181,15 +180,16 @@ yS.fn = yS.prototype = {
 	// returns the nth item in yShort
 	eq: function(num){
 		var $ = yS(this);
+		num = num || 0; // if none is specified, we return the first element
 
 		$[0] = this[num];
-		$.stack(this);
-		$.wipe(1);
+		
+		$.stack(this).wipe(1);
 
 		return $;
 	},
 	
-	// get an array of nodes (convert yShort into array)
+	// get an array of nodes (convert yShort object into an Array)
 	get: function(num) {
 		return (num === 0 || num) ? [].slice.call(this, num, num+1) : [].slice.call(this);
 	},
@@ -226,7 +226,9 @@ yS.fn = yS.prototype = {
 		var $ = this;
 
 		if (str === 0 || str) 
-			$.each(function(i){	$[i].innerHTML = str; });
+			$.each(function(i){	
+				$[i].innerHTML = str; 
+			});
 		else 
 			return $[0].innerHTML;
 			
@@ -236,12 +238,11 @@ yS.fn = yS.prototype = {
 	// manipulate value of nodes or return value of first node
 	val: function(str) {
 		var $ = this;
-		// stringent check on integer or empty string
-		if (str === '' || String(str).length)
+		// stringent check on integer or empty string to prevent 0 as being detected as false
+		if (yS.trim(str) === '' || String(str).length)
 			$.each(function(i){
 				$[i].value = str;
 			});
-
 		else
 			return $[0].value;
 			
@@ -253,9 +254,9 @@ yS.fn = yS.prototype = {
 		var $ = yS(this),
 			els = FIL($, qry);
 		// wipe plus reset length
-		$.wipe(els.length);
-		$.stack(this);
-		$.each(function(i){ $[i] = els[i] });
+		$.stack(this)
+		 .wipe(els.length)
+		 .each(function(i){ $[i] = els[i] });
 	
 		return $;
 	},
@@ -292,7 +293,9 @@ yS.fn = yS.prototype = {
 				els[i] = qry[i];
 		else
 			els = SEL(qry) || [];
-			
+		
+		$.stack(this);
+		
 		for(var i=$.length; i<$.length+els.length; i++)
 			$[i] = els[i-$.length];
 			
@@ -313,14 +316,12 @@ yS.fn = yS.prototype = {
 		if (qry)
 			els = FIL(els, qry);
 		
-		$.stack(this);
-		
 		// we wipe first, so we increase 'this' length for easy looping to match with els
-		$.wipe(els.length);
-
-		$.each(function(i){
+		$.stack(this)		
+		 .wipe(els.length)
+		 .each(function(i){
 			$[i] = els[i];
-		});
+		 });
 			
 		return $;
 	},
@@ -334,44 +335,45 @@ yS.fn = yS.prototype = {
 			els[i] = $[i].parentNode;
 		});
 		
-		$.stack(this);
-
 		els = yS.unique(els);
 		
 		// we wipe first, so we reduce 'this' length for easy looping to match with els
-		$.wipe(els.length);
-		
-		$.each(function(i){
+		$.stack(this)
+		 .wipe(els.length)
+		 .each(function(i){
 			$[i] = els[i];
-		});
+		 });
 
 		return $;
 	},
 	
 	ancestors: function(str){
 		var els=[],
-			$ = yS(this);
-			
-		$.each(function(i){
-			var temp = $[i];
-			while(temp){
-				els.push(temp);
-				temp=temp.parentNode;
-			}
-		});
-
-		els = FIL(els, str);
-		els = yS.unique(els);
-		$.stack(this);
-
-		els = yS.unique(els);
+		$ = yS(this);
 		
-		// we wipe first, so we reduce 'this' length for easy looping to match with els
-		$.wipe(els.length);
-		
-		$.each(function(i){
-			$[i] = els[i];
-		});
+		if (str) {	
+			$.each(function(i){
+				var temp = $[i];
+				while(temp){
+					els.push(temp);
+					temp=temp.parentNode;
+				}
+			});
+	
+			els = FIL(els, str);
+			els = yS.unique(els);
+
+			// we wipe first, so we reduce 'this' length for easy looping to match with els
+			$.stack(this)
+			 .wipe(els.length)
+			 .each(function(i){
+				$[i] = els[i];
+			 });
+		}
+		else {
+			$.stack(this)
+			 .wipe(els.length);
+		}
 
 		return $;
 	},
@@ -384,47 +386,53 @@ yS.fn = yS.prototype = {
 		$.each(function(i){
 			els = els.concat(SEL(qry, $[i]));
 		});
-		
-		$.stack(this);
-		
 		els = yS.unique(els);
 		
 		// we wipe first, so we reduce 'this' length for easy looping to match with els
-		$.wipe(els.length);
-		
-		$.each(function(i){
+		$.stack(this)
+		 .wipe(els.length)
+		 .each(function(i){
 			$[i] = els[i];
-		});
+		 });
 
 		return $;
 	},
 	
 	next: function(){
-		var $ = yS(this),
-			nS = DOM.getNextSibling($[0]);
+		var $ = yS(this), 
+			nS = [];
 		
-		if (nS) {
-			$.stack(this);
-			$.wipe(1);
-			$[0] = nS; 
-		}
-		else
-			$.wipe();
-			
+		$.each(function(i){
+			var temp = DOM.getNextSibling($[i]);
+			if (temp)
+				nS.push(temp);
+		});
+
+		$.stack(this)
+		 .wipe(nS.length)
+		 .each(function(i){
+			$[i] = nS[i];
+		 });
+		
 		return $;
 	},
 	
 	prev: function(){
-		var $ = yS(this),
-			pS = DOM.getPreviousSibling($[0]);
+		var $ = yS(this), 
+			pS = [];
+		
+		$.each(function(i){
+			var temp = DOM.getPreviousSibling($[i]);
+			if (temp)
+				pS.push(temp);
+		});
 
-		if (pS) {
-			$.stack(this);
-			$.wipe(1);
-			$[0] = pS; 
-		}
-		else
-			$.wipe();
+		$.stack(this)
+		 .wipe(pS.length)
+		 .each(function(i){
+			$[i] = pS[i];
+		 });
+		
 		return $;
 	},
 	
@@ -475,29 +483,20 @@ yS.fn = yS.prototype = {
 	bind: function(type, fn) {
 		var tmp = type.split(' '),
 			$ = this;
-		for (var i=0; i< tmp.length; i++) {
-			//tmp[i] = $.trim(tmp[i]);
-			if(tmp[i]) {
-				EV.addListener($, tmp[i], fn);/*function(e) {
-					// mimicking jQuery return false
-					if (fn.call(this, e) === false)
-						EV.stopEvent(e);
-					// console.log(EV.getListeners(this, 'click'));
-				});*/
-			}
-		}
+		for (var i=0; i< tmp.length; i++)
+			if(tmp[i])
+				EV.addListener($, tmp[i], fn);
+		
 		return $;
 	},
 	
 	unbind: function(type, fn) {
 		var tmp = type.split(' '),
 			$ = this;
-		for (var i=0; i< tmp.length; i++) {
-			//tmp[i] = $.trim(tmp[i]);
-			if(tmp[i]) {
+		for (var i=0; i< tmp.length; i++)
+			if(tmp[i])
 				EV.removeListener($, tmp[i], fn);
-			}
-		}
+
 		return $;
 	},
 	
@@ -531,29 +530,29 @@ yS.fn = yS.prototype = {
 		var $ = this,
 			obj = {};
 			
-		// detect if string or int
-		obj[type] = isStr(o) ? o: parseInt(o) + "px";
-		
 		if (o) {
+			// detect if string or int
+			obj[type.toLowerCase()] = isStr(o) ? o: parseInt(o, 10) + "px";
 			$.css(obj);
 			return $;
 		}
 		
-		type = 'client'+ type.substr(0,1).toUpperCase() + type.substr(1,type.length);
+		type = 'client'+ type;
 		return $[0][type] || false;
 	},
 	
 	// return width as calculated by browser
 	width: function(o) {
-		return this.dimension(o, 'width');
+		return this.dimension(o, 'Width');
 	},
 	
 	// return height as calculated by browser
 	height: function(o) {
-		return this.dimension(o, 'height');
+		return this.dimension(o, 'Height');
 	},
 	
 	// hope for the best, my guess is that attr sucks
+	// rewrite needed to remove YAHOO.util.Element dependency
 	attr: function(prop, val) {
 		var $ = this,
 			el;
@@ -595,8 +594,6 @@ yS.fn = yS.prototype = {
 			});
 			tmp.appendChild(fragment);
 		}
-		
-		
 		return $;
 	},
 	
@@ -612,7 +609,6 @@ yS.fn = yS.prototype = {
 			var first = tmp.firstChild;
 			tmp.insertBefore(fragment, first);
 		}
-		
 		return $;
 	},
 	
@@ -652,8 +648,9 @@ yS.fn = yS.prototype = {
 		var $ = yS(this),
 			cloned = $[0].cloneNode(true);
 
-		$.stack(this);
-		$.wipe(1);
+		$.stack(this)
+		 .wipe(1);
+		 
 		$[0] = cloned;
 		
 		return $;
@@ -675,7 +672,8 @@ yS.fn = yS.prototype = {
 		// rtrim the & symbol
 		return tmp.substring(0, tmp.length-1);
 	},
-
+	
+	// trim shouldn't be here, instead should be extended
 	trim: function( text ) {
 		return (text || "").replace( /^\s+|\s+$/g, "" );
 	},
@@ -704,7 +702,7 @@ yS.fn = yS.prototype = {
 		
 		return $;
 	},
-	 //useless because they can only be used in one instance of yShort, fix coming soon
+	
 	// stops all animation
 	stop: function() {
 		var $ = this;
@@ -718,6 +716,7 @@ yS.fn = yS.prototype = {
 
 		return $;
 	},
+	
 	// checks for animation, returns true or false
 	animated: function() {
 		var $ = this,
@@ -766,7 +765,7 @@ yS.fn = yS.prototype = {
 	}
 }
 
-// drop init from list of prototypes as it's the constructor
+// drop init from list of prototypes as it's the constructor to prevent circular reference
 for(prop in yS.fn) {
 	if (prop != 'init')
 		yS.fn.init.prototype[prop] = yS.fn[prop];
@@ -778,19 +777,11 @@ yS.extend = yS.fn.extend;
 // execute to extend yShort
 yS.extend(yS, {
 	
-	/*
-	* Mimicks jQuery but not using their code
-	*/
 	each: yS.fn.each,
 	
-	/*
-	* Shortest way to write make array, ownage
-	*/
-	makeArray: function(o){	return [].slice.call(o); },
+	// Make Object into Array
+	makeArray: function(o){	return Array.prototype.slice.call(o); },
 	
-	/*
-	* Returns unique, whether DOM or array, pretty decent algorithm
-	*/
 	// returns a unique set of array
 	unique : function(a) {
 		var r = [];
@@ -803,9 +794,6 @@ yS.extend(yS, {
 		return r;
 	},
 	
-	/*
-	* Copied from jQuery
-	*/
 	grep: function(o, fn) {
 		var arry = [];
 		// Go through the array, only saving the items that pass the validator function
@@ -816,9 +804,6 @@ yS.extend(yS, {
 		return arry;
 	},
 
-	/*
-	* Copied from jQuery
-	*/
 	inArray: function(el, o){
 		// prevent ie's window == document problem
 		for ( var i = 0; i < o.length; i++ )
@@ -834,29 +819,28 @@ yS.extend(yS, {
 
 		return arry;
 	},
-
-	merge: function(){
-		var o = [];
-		for ( var i = 0; i < arguments.length; i++ ) 
-			o = o.concat(arguments[i]);	
-		return o;
+	
+	// merge two arrays
+	merge: function(o, o2){
+		var arry = [];
+		arry = o.concat(o, o2);	
+		return arry;
 	},
 
-	/*
-	* Copied from jQuery, original copyrighted of other origin
-	*/
-	isArray: isArray,
+	//Public type detection using Mark Miller's method
+	typeOf: function(o){ return myToString(o).slice(8, -1).toLowerCase(); },
+	isArray: function(o){ return myToString(o) == "[object Array]" },
+	isFunction: function(o){ return myToString(o) == "[object Function]" },
+	isObject: function(o){ return myToString(o) == "[object Object]" },
+	isDate: function(o){ return myToString(o) == "[object Date]" },
+	isString: function(o){ return myToString(o) == "[object String]" },
+	isNumber: function(o){ return myToString(o) == "[object String]" },
+	isBoolean: function(o){ return myToString(o) == "[object String]" },
 	
-	isFunction: isFn,
-	
-	/*
-	* Copied from jQuery, original copyrighted of other origin
-	*/
+	// trim head and tail whitespace from strings
 	trim: yS.fn.trim,
 
-	/*
-	* remap YUI's asyncRequest, write even shorter code, ownage
-	*/
+	// remap YUI's asyncRequest to jQuery style
 	ajax: function(o) {
 		var opts = this.extend({
 			cache: true,
@@ -865,7 +849,7 @@ yS.extend(yS, {
 			url: '/'
 		}, o);
 		
-		if(this.trim(opts.type) === 'GET') {
+		if(this.trim(opts.type) == 'GET') {
 			if (opts.data)
 				opts.url += '?' + opts.data;
 		}
@@ -881,9 +865,8 @@ yS.extend(yS, {
 		var transaction = CON.asyncRequest(opts.type, opts.url, callback, opts.data); 
 	},
 	
-	/*
-	* Even better namespace function than YUI's namespace, support root as window obj
-	*/
+	
+	// A general namespace function, support root as window obj
 	namespace: function(name) {
 		if (name) {
 			// explode namespace with delimiter
@@ -900,33 +883,13 @@ yS.extend(yS, {
 		}
 	},
 
-	/* 
-	* Feature detection of major browsers, code is more future proof
-	*/
-	
-	isIE6: function(){
-		return (doc.body.style.maxHeight === undefined) ? true: false;
-	},
-	
-	isIE7: function(){
-		return (doc.all && !win.opera && win.XMLHttpRequest) ? true : false;
-	},
-
-	isIE: function(){
-		return (win.ActiveXObject && doc.all) ? true: false;
-	},
-	
-	isGecko: function(){
-		return (doc.getBoxObjectFor === undefined) ? false : true;
-	},
-	
-	isOpera: function(){
-		return (win.opera) ? true : false;
-	},
-
-	isWebkit: function(){
-		return (navigator.taintEnabled) ? false : true;
-	}
+	// Detecting major browsers using feature detection
+	isIE6: function(){ return (doc.body.style.maxHeight === undefined) ? true: false; },
+	isIE7: function(){ return (!win.opera && win.XMLHttpRequest && !doc.querySelectorAll) ? true : false;	},
+	isIE: function(){ return (win.attachEvent && !win.opera) ? true: false; },
+	isGecko: function(){return (doc.getBoxObjectFor === undefined) ? false : true;	},
+	isOpera: function(){ return (win.opera) ? true : false;	},
+	isWebkit: function(){ return (nav.taintEnabled) ? false : true; }
 
 }); // end yS.extend 
-})(); //end yShort anon
+})(); //end anonymous function

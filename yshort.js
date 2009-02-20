@@ -70,7 +70,7 @@ yS.fn = yS.prototype = {
 			$.length = 1;
 		}
 		
-		// if object or yShort object, oops some object does not have length.. TODO
+		// if array, object or yShort object
 		else if (isObj(qry)) {
 			if (!o.yShort && yS.isObject(o))
 				o = yS.makeArray(o); // if not array or yShort object, we need it to be an array
@@ -888,8 +888,8 @@ yS.extend(yS, {
 	isObject: function(o){ return myToString(o) === "[object Object]" },
 	isDate: function(o){ return myToString(o) === "[object Date]" },
 	isString: function(o){ return myToString(o) === "[object String]" },
-	isNumber: function(o){ return myToString(o) === "[object String]" },
-	isBoolean: function(o){ return myToString(o) === "[object String]" },
+	isNumber: function(o){ return myToString(o) === "[object Number]" },
+	isBoolean: function(o){ return myToString(o) === "[object Boolean]" },
 
 	// Detecting major browsers using feature detection
 	isIE6: function(){ return (doc.body.style.maxHeight === undefined) ? true: false; },

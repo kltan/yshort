@@ -1,7 +1,7 @@
 /*!
  * yShort 0.2 
  * http://github.com/kltan/yshort/tree/master
- * A really short way to write YUI 2.7.x
+ * A really short way to write YUI 2.6.x - 2.7.x
  * Licensed under the MIT and GPL, choose a license that suits your needs
  * Copyright 2009 Kean Tan
  * Start date: 2008-12-17
@@ -24,9 +24,9 @@ var doc = document,
 	FIL = function(o, qry){	return win.Sizzle ?	win.Sizzle.filter(qry, o): UT.Selector.filter(o, qry); },
 	
 	// check for types
-	isFn = function(o) { return typeof o == "function" },
-	isStr = function(o) { return typeof o == "string" },
-	isObj = function(o) { return typeof o == "object" }, // array is also detected as object
+	isFn = function(o) { return typeof o === "function" },
+	isStr = function(o) { return typeof o === "string" },
+	isObj = function(o) { return typeof o === "object" }, // array is also detected as object
 	isNode = function(o) { return o.nodeType; }, // fastest node detection
 	isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) }, // lazy HTML detection
 	
@@ -72,6 +72,9 @@ yS.fn = yS.prototype = {
 		
 		// if object or yShort object, oops some object does not have length.. TODO
 		else if (isObj(qry)) {
+			if (!o.yShort && yS.isObject(o))
+				o = yS.makeArray(o); // if not array or yShort object, we need it to be an array
+
 			for(var i =0; i<qry.length; i++)
 				$[i] = qry[i];
 			$.length = qry.length;
@@ -827,16 +830,6 @@ yS.extend(yS, {
 		return arry;
 	},
 
-	//Public type detection using Mark Miller's method
-	typeOf: function(o){ return myToString(o).slice(8, -1).toLowerCase(); },
-	isArray: function(o){ return myToString(o) == "[object Array]" },
-	isFunction: function(o){ return myToString(o) == "[object Function]" },
-	isObject: function(o){ return myToString(o) == "[object Object]" },
-	isDate: function(o){ return myToString(o) == "[object Date]" },
-	isString: function(o){ return myToString(o) == "[object String]" },
-	isNumber: function(o){ return myToString(o) == "[object String]" },
-	isBoolean: function(o){ return myToString(o) == "[object String]" },
-	
 	// trim head and tail whitespace from strings
 	trim: yS.fn.trim,
 
@@ -879,9 +872,24 @@ yS.extend(yS, {
 		    	var nm = name[i];
 				// if not exist, add current name as obj to parent level, assign ns (parent) to current
 				ns = ns[nm] || ( ns[nm] = {} ); 
+				
+				// this will determine if we have successfully created the namespace
+				if (i === name.length-1) 
+					return (yS.isObject(ns)) ? true: false;
 			}
 		}
+		return false;
 	},
+	
+	//Public type detection using Mark Miller's method
+	typeOf: function(o){ return myToString(o).slice(8, -1).toLowerCase(); },
+	isArray: function(o){ return myToString(o) === "[object Array]" },
+	isFunction: function(o){ return myToString(o) === "[object Function]" },
+	isObject: function(o){ return myToString(o) === "[object Object]" },
+	isDate: function(o){ return myToString(o) === "[object Date]" },
+	isString: function(o){ return myToString(o) === "[object String]" },
+	isNumber: function(o){ return myToString(o) === "[object String]" },
+	isBoolean: function(o){ return myToString(o) === "[object String]" },
 
 	// Detecting major browsers using feature detection
 	isIE6: function(){ return (doc.body.style.maxHeight === undefined) ? true: false; },

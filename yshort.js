@@ -31,7 +31,6 @@ var doc = document,
 	isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) }, // lazy HTML detection
 	
 	get1stNode = function(o) { 	return isNode(o) ? o : SEL(o)[0]; }, // yShort internal method
-	ySrandom = Math.floor(Math.random() * 100000), // add random number to prevent collision
 	yshortdata = 'yshortdata', // for data() use
 	yshorteffects ='yshorteffects', // for animate() use
 	
@@ -289,16 +288,21 @@ yS.fn = yS.prototype = {
 		var els = [], 
 			$ = yS(this);
 
-		if (isNode(qry))
+		if (isNode(qry))  // you can add a node
 			els[0] = qry;
-		else if (isObj(qry))
+		else if (isObj(qry)) { // a yshort object, array or object
+			// if not yshort object and is object, convert to array
+			if (!qry.yshort && yS.isObject(qry) 
+				qry = yS.makeArray(qry);
 			for (var i=0; i<qry.length; i++)
 				els[i] = qry[i];
+		}
 		else
 			els = SEL(qry) || [];
 		
 		$.stack(this);
 		
+		// adding to the length
 		for(var i=$.length; i<$.length+els.length; i++)
 			$[i] = els[i-$.length];
 			
@@ -349,10 +353,10 @@ yS.fn = yS.prototype = {
 
 		return $;
 	},
-	
+	// TODO: rewrite ancestors so that i doesn't have to be filtered by str 
 	ancestors: function(str){
 		var els=[],
-		$ = yS(this);
+			$ = yS(this);
 		
 		if (str) {	
 			$.each(function(i){
@@ -381,7 +385,7 @@ yS.fn = yS.prototype = {
 		return $;
 	},
 	
-	
+	// TODO: decrease usage of each
 	find: function(qry) {
 		var els = [],
 			$ = yS(this);
@@ -401,6 +405,7 @@ yS.fn = yS.prototype = {
 		return $;
 	},
 	
+	// TODO: rewrite without using YUI
 	next: function(){
 		var $ = yS(this), 
 			nS = [];
@@ -419,7 +424,7 @@ yS.fn = yS.prototype = {
 		
 		return $;
 	},
-	
+	// TODO: rewrite without using YUI
 	prev: function(){
 		var $ = yS(this), 
 			pS = [];
@@ -460,11 +465,11 @@ yS.fn = yS.prototype = {
 		var $ =this;
 		if (value)
 			$.each(function(i){
-				if(!$[i][yshortdata+ySrandom]) $[i][yshortdata+ySrandom] = [];
-				$[i][yshortdata+ySrandom][key] = value;
+				if(!$[i][yshortdata+yS.ySrandom]) $[i][yshortdata+yS.ySrandom] = [];
+				$[i][yshortdata+yS.ySrandom][key] = value;
 			});
 		else if (key)
-			return $[0][yshortdata+ySrandom][key];
+			return $[0][yshortdata+yS.ySrandom][key];
 			
 		return $;
 	},
@@ -472,11 +477,11 @@ yS.fn = yS.prototype = {
 	removeData: function(key) {
 		var $ = this;
 		$.each(function(i){
-			if($[i][yshortdata+ySrandom]) {
+			if($[i][yshortdata+yS.ySrandom]) {
 				if(key) 
-					delete $[i][yshortdata+ySrandom][key];
+					delete $[i][yshortdata+yS.ySrandom][key];
 				else
-					delete $[i][yshortdata+ySrandom];			
+					delete $[i][yshortdata+yS.ySrandom];		
 			}
 		});
 
@@ -535,13 +540,13 @@ yS.fn = yS.prototype = {
 			
 		if (o) {
 			// detect if string or int
-			obj[type.toLowerCase()] = isStr(o) ? o: parseInt(o, 10) + "px";
+			obj[type.toLowerCase()] = isStr(o) ? o: parseInt(o, 10) + "px"; 
 			$.css(obj);
 			return $;
 		}
 		
 		type = 'client'+ type;
-		return $[0][type] || false;
+		return $[0][type] || false; // false for no height or width, probably item is not display:block?
 	},
 	
 	// return width as calculated by browser
@@ -554,33 +559,24 @@ yS.fn = yS.prototype = {
 		return this.dimension(o, 'Height');
 	},
 	
-	// hope for the best, my guess is that attr sucks
-	// rewrite needed to remove YAHOO.util.Element dependency
+	// attr does not support style and events, meant to be like this for elegant code
 	attr: function(prop, val) {
 		var $ = this,
 			el;
 		// if prop is obj, we disregard val
 		if (isObj(prop)) {
-			$.each(function(i){
-				el = new EL($[i]);
-				el.setAttributes(prop);
-				delete el;
-			});
+			for(var i=0; i<$.length; i++)
+				for(attribute in prop)
+					$[i].setAttribute(attribute,prop[attribute]);
 		}
-		// if prop is not obj and val exists
-		else if (val)
-			$.each(function(i){
-				el = new EL($[i]);
-				el.set(prop,val);
-				delete el;
-			});
-			
-		// if prop does exists
+		// if prop is not obj (means string) and val exists
+		else if (val){
+			for(var i=0; i<$.length; i++)
+				$[i].setAttribute(prop,val);
+		}
+		// if prop does exists as string and val does not exist
 		else if (prop){
-			el = new EL($[0]);
-			var tmp = el.get(prop);
-			delete el;
-			return tmp;
+			return $[0].getAttribute(prop);
 		}
 
 		return $;
@@ -588,7 +584,7 @@ yS.fn = yS.prototype = {
 	
 	appendTo: function(o) {
 		var tmp = get1stNode(o),
-			$ = this;
+			$ = this,
 			fragment = doc.createDocumentFragment();
 			
 		if (tmp) {
@@ -646,7 +642,7 @@ yS.fn = yS.prototype = {
 		}
 		return $;
 	},
-	
+	/* TODO: look into function events cloning */
 	clone: function(){
 		var $ = yS(this),
 			cloned = $[0].cloneNode(true);
@@ -670,15 +666,10 @@ yS.fn = yS.prototype = {
 	serialize: function() {
 		var tmp = '';
 		for (var i=0; i<this.length; i++)
-			if (this[i].name && this[i].value)
+			if (this[i].name)
 				tmp += this[i].name + '=' + this[i].value + '&';
 		// rtrim the & symbol
 		return tmp.substring(0, tmp.length-1);
-	},
-	
-	// trim shouldn't be here, instead should be extended
-	trim: function( text ) {
-		return (text || "").replace( /^\s+|\s+$/g, "" );
 	},
 	
 	// used internally for now
@@ -695,7 +686,7 @@ yS.fn = yS.prototype = {
 
 		for(var i=0; i<$.length; i++) {
 			// make yshortEffects expando an array if not exists
-			var fx = $[i][yshorteffects+ySrandom] = $[i][yshorteffects+ySrandom] || [];
+			var fx = $[i][yshorteffects+yS.ySrandom] = $[i][yshorteffects+yS.ySrandom] || [];
 			// push new effects into node expando
 			fx.push(new YAHOO.util.Anim($[i], attr, sec, ease));
 			// animate the effects now
@@ -710,7 +701,7 @@ yS.fn = yS.prototype = {
 	stop: function() {
 		var $ = this;
 		for(var i=0; i<$.length; i++) {
-			var fx =$[i][yshorteffects+ySrandom];
+			var fx =$[i][yshorteffects+yS.ySrandom];
 			if(fx)
 				for(var j=0; j<fx.length; j++) 
 					if(fx[j])
@@ -723,7 +714,7 @@ yS.fn = yS.prototype = {
 	// checks for animation, returns true or false
 	animated: function() {
 		var $ = this,
-			fx = $[0][yshorteffects+ySrandom];
+			fx = $[0][yshorteffects+yS.ySrandom];
 		
 		if (fx)
 			for (var i=0; i< fx.length; i++)
@@ -758,7 +749,7 @@ yS.fn = yS.prototype = {
 		
 		if (isObj(attr)) {
 			$.each(function(i){
-				var fx = $[i][yshorteffects+ySrandom] = $[i][yshorteffects+ySrandom] || [];
+				var fx = $[i][yshorteffects+yS.ySrandom] = $[i][yshorteffects+yS.ySrandom] || [];
 				fx.push(new UT.ColorAnim($[i], attr, duration));
 				fx[fx.length-1].animate();
 			});
@@ -779,7 +770,10 @@ yS.extend = yS.fn.extend;
 
 // execute to extend yShort
 yS.extend(yS, {
+	// add random number to prevent collision
+	ySrandom: Math.floor(Math.random() * 100000),
 	
+	// iterate through each item in array
 	each: yS.fn.each,
 	
 	// Make Object into Array
@@ -831,7 +825,9 @@ yS.extend(yS, {
 	},
 
 	// trim head and tail whitespace from strings
-	trim: yS.fn.trim,
+	trim: function( text ) {
+		return (String(text)).replace( /^\s+|\s+$/g, "" );
+	},
 
 	// remap YUI's asyncRequest to jQuery style
 	ajax: function(o) {
@@ -842,7 +838,7 @@ yS.extend(yS, {
 			url: '/'
 		}, o);
 		
-		if(this.trim(opts.type) == 'GET') {
+		if(this.trim(opts.type) === 'GET') {
 			if (opts.data)
 				opts.url += '?' + opts.data;
 		}

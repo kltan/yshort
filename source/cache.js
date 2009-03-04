@@ -3,12 +3,13 @@ var doc = document,
 	win = window,
 	nav = navigator,
 	undefined, // speeding up undefined
-	myToString = Object.prototype.toString.call, // type detection function call
+	myToString = Object.prototype.toString, // type detection function call
+	myPush = Array.prototype.push,
 	UT = win.YAHOO.util, // YAHOO.util
 	DOM = UT.Dom, // YAHOO.util.Dom
 	EV = UT.Event, // YAHOO.util.Event
 	CON = UT.Connect, // YAHOO.util.Connect
-	SEL = win.Sizzle || UT.Selector.query, // Sizzle or YAHOO.util.Selector.query
+	SEL = function(qry, context){ return win.Sizzle ? win.Sizzle(qry, context) : UT.Selector.query(qry, context)}, // Sizzle or YAHOO.util.Selector.query
 	EL = UT.Element, // YAHOO.util.Element
 	FIL = function(o, qry){	return win.Sizzle ?	win.Sizzle.filter(qry, o): UT.Selector.filter(o, qry); },
 	
@@ -16,9 +17,10 @@ var doc = document,
 	isFn = function(o) { return typeof o === "function" },
 	isStr = function(o) { return typeof o === "string" },
 	isObj = function(o) { return typeof o === "object" }, // array is also detected as object
-	isNode = function(o) { return o.nodeType; }, // fastest node detection
-	isHTML = function(o) { return /^[^<]*(<(.|\s)+>)[^>]*$/.exec(o) }, // lazy HTML detection
+	isNode = function(o) { return o.nodeType; }, // fastest node detection, unreliable
+	isHTML = function(o) { return /^<(.|\s)+>$/.test(o) }, // lazy HTML detection, unreliable
 	
+	// some internal properties
 	get1stNode = function(o) { 	return isNode(o) ? o : SEL(o)[0]; }, // yShort internal method
 	yshortdata = 'yshortdata', // for data() use
 	yshorteffects ='yshorteffects', // for animate() use

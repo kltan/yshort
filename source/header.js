@@ -1,5 +1,5 @@
 /*!
- * yShort 0.2 
+ * yShort <?= $version ?> 
  * <?= $homepage ?> 
  * <?= $description ?> 
  * <?= $license ?> 

@@ -1,13 +1,21 @@
+// fake yShort as Array to inherit some really fast functions like sort
+yS.fn.init.prototype = Array.prototype;
+
 // drop init from list of prototypes as it's the constructor to prevent circular reference
 for(prop in yS.fn) {
 	if (prop != 'init')
 		yS.fn.init.prototype[prop] = yS.fn[prop];
 }
 
-// define, for global ease of use
-yS.extend = yS.fn.extend;
+// define extend (o,o2,o3,o4,o5 .......)
+yS.extend = function(o) {
+	for ( var i = 0; i < arguments.length; i++ ) 
+		for ( var key in arguments[i] ) 
+			o[key] = arguments[i][key]; 
+	return o;
+};
 
-// execute to extend yShort
+// execute to extend yShort methods and properties
 yS.extend(yS, {
 	// add random number to prevent collision
 	ySrandom: Math.floor(Math.random() * 100000),
@@ -16,14 +24,29 @@ yS.extend(yS, {
 	each: yS.fn.each,
 	
 	// Make Object into Array
-	makeArray: function(o){	return Array.prototype.slice.call(o); },
+	makeArray: function( array ) {
+		var ret = [];
+		ret.prototype = array.prototype;
+
+		if( array != null ){
+			var i = array.length;
+			// The window, strings (and functions) also have 'length'
+			if( i == null || typeof array === "string" || yShort.isFunction(array) || array.setInterval )
+				ret[0] = array;
+			else
+				while( i )
+					ret[--i] = array[i];
+		}
+		
+		return ret;
+	},
 	
 	// returns a unique set of array
 	unique : function(a) {
 		var r = [];
 		o:for(var i = 0, n = a.length; i < n; i++) {
 			for(var x = i + 1 ; x < n; x++) {
-				if(a[x]===a[i]) continue o;
+				if(a[x]===a[i]) continue o; // prevent window == document for DOM comparison
 			}
 			r[r.length] = a[i];
 		}
@@ -83,9 +106,9 @@ yS.extend(yS, {
 		}
 		
 		var callback = {
-			loading: function(o){ opts.loading.call(doc, o.responseText); },
-			success: function(o){ opts.success.call(doc, o.responseText); },
-			failure: function(o){ opts.error.call(doc, o.responseText); },
+			loading: function(o){ opts.loading.call(win, o.responseText); },
+			success: function(o){ opts.success.call(win, o.responseText); },
+			failure: function(o){ opts.error.call(win, o.responseText); },
 			cache: opts.cache
 		}
 		
@@ -95,12 +118,12 @@ yS.extend(yS, {
 	
 	
 	// A general namespace function, support root as window obj
-	namespace: function(name) {
+	namespace: function(name, root) {
 		if (name) {
 			// explode namespace with delimiter
 		    name=name.split(".");
-			// root is window obj
-		    var ns = win;
+			// root is defaulted to window obj
+		    var ns = root || win;
 			// loop through each level of the namespace
 		    for (var i =0; i<name.length; i++) {
 				// nm is current level name
@@ -116,15 +139,15 @@ yS.extend(yS, {
 		return false;
 	},
 	
-	//Public type detection using Mark Miller's method
-	typeOf: function(o){ return myToString(o).slice(8, -1).toLowerCase(); },
-	isArray: function(o){ return myToString(o) === "[object Array]" },
-	isFunction: function(o){ return myToString(o) === "[object Function]" },
-	isObject: function(o){ return myToString(o) === "[object Object]" },
-	isDate: function(o){ return myToString(o) === "[object Date]" },
-	isString: function(o){ return myToString(o) === "[object String]" },
-	isNumber: function(o){ return myToString(o) === "[object Number]" },
-	isBoolean: function(o){ return myToString(o) === "[object Boolean]" },
+	// Public type detection, using Object.prototype.toString.call for ambigous cases
+	typeOf: function(o){ return myToString.call(o).slice(8, -1).toLowerCase(); },
+	isArray: function(o){ return myToString.call(o) === "[object Array]" },
+	isObject: function(o){ return myToString.call(o) === "[object Object]" },
+	isDate: function(o){ return myToString.call(o) === "[object Date]" },
+	isFunction: isFn,
+	isString: isStr,
+	isNumber: function(o){ return typeof o === "number" },
+	isBoolean: function(o){ return typeof o === "boolean" },
 
 	// Detecting major browsers using feature detection
 	isIE6: function(){ return (doc.body.style.maxHeight === undefined) ? true: false; },

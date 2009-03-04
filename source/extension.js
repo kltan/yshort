@@ -1,5 +1,6 @@
 // fake yShort as Array to inherit some really fast functions like sort
-yS.fn.init.prototype = Array.prototype;
+//yS.fn.init.constructor = Array.constructor;
+//yS.fn.init.prototype = Array.prototype;
 
 // drop init from list of prototypes as it's the constructor to prevent circular reference
 for(prop in yS.fn) {

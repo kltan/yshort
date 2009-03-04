@@ -42,6 +42,7 @@ jQuery.fn = jQuery.prototype = {
 			this[0] = selector;
 			this.length = 1;
 			this.context = selector;
+			console.log(this);
 			return this;
 		}
 		// Handle HTML strings

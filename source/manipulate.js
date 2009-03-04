@@ -10,34 +10,51 @@ yS.fn = yS.prototype = {
 	init: function(qry, context) {
 		context = context || doc;
 		qry = qry || doc;
-		
-		var myResult = [];
+	
 		this.previousStack = [];
 		
 		// if DOM node
-		if (isNode(qry))
-			myResult = [qry];
+		if (isNode(qry)) {
+			this[0] = qry;
+			this.length = 1;
+		}
 		
 		// if String
 		else if (isStr(qry)) {
 			// if HTML, create nodes from it and push into yShort object, then we can manipulate the nodes with yShort methods
 			if (isHTML(qry)) {
-				var c = 0,
-				x = doc.createElement('YSHORT');
+				var x = doc.createElement('YSHORT');
 				x.innerHTML= qry;
-				myResult = x.childNodes;
+				var c = x.childNodes.length;
+				
+				for (var i=0; i < c; i++)
+					this[i] = (x.childNodes[i]);
+				
+				this.length = c;
+
 			}
 			else {
 				// if CSS query
 				this.selector = qry;
-				myResult = SEL(qry, context);
+				var result = SEL(qry, context);
+				
+				for (var i=0; i < result.length; i++)
+					this[i] = result[i];
+					
+				this.length = result.length;
 			}
 		}
 		
 		// if array, object or yShort object
 		else if (isObj(qry)) {
 			// if not array or yShort object, we need it to be an array
-			myResult = qry;
+			if (!qry.length)
+				qry = yS.makeArray(qry);
+			
+			for (var i=0; i < qry.length; i++)
+				this[i] = qry[i];
+				
+			this.length = qry.length;	
 			this.selector = qry.selector || null;
 		}
 		
@@ -49,19 +66,15 @@ yS.fn = yS.prototype = {
 				qry.call(win, yS, shortcuts);
 			});
 		}
-		
-		if (!yS.isArray(myResult))
-			myResult = yS.makeArray(myResult);
-
-		this.length = 0;	
-		myPush.apply(this, myResult);
 	},
 	
 	/****************************************************************
 	 * all the members below are shared amongs all yShort objects,  *
 	 * you change one, they affect ALL YAHOO.util.Short objects     *
 	 ****************************************************************/
-	
+	push: Array.prototype.push,
+	sort: Array.prototype.sort,
+	splice: Array.prototype.splice,
 	// version number and also for yShort object detection
 	yShort: '<?=$version?>',
 	// numbers of nodes inside current yShort obj
@@ -489,13 +502,15 @@ yS.fn = yS.prototype = {
 	appendTo: function(o) {
 		var tmp = get1stNode(o),
 			fragment = doc.createDocumentFragment();
-			
+
 		if (tmp) {
 			for (var i=0; i< this.length; i++) {
 				fragment.appendChild(this[i]);
 			};
 			tmp.appendChild(fragment);
+			
 		}
+
 		return this;
 	},
 	

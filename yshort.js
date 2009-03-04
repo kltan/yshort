@@ -5,7 +5,7 @@
  * Dual licensed under the MIT and BSD 
  * Copyright 2008-2009 Kean Tan 
  * Start date: 2008-12-17
- * Last build: 2009-03-03 05:59:13 PM 
+ * Last build: 2009-03-04 02:42:14 PM 
  */
 
 (function(){
@@ -59,34 +59,51 @@ yS.fn = yS.prototype = {
 	init: function(qry, context) {
 		context = context || doc;
 		qry = qry || doc;
-		
-		var myResult = [];
+	
 		this.previousStack = [];
 		
 		// if DOM node
-		if (isNode(qry))
-			myResult = [qry];
+		if (isNode(qry)) {
+			this[0] = qry;
+			this.length = 1;
+		}
 		
 		// if String
 		else if (isStr(qry)) {
 			// if HTML, create nodes from it and push into yShort object, then we can manipulate the nodes with yShort methods
 			if (isHTML(qry)) {
-				var c = 0,
-				x = doc.createElement('YSHORT');
+				var x = doc.createElement('YSHORT');
 				x.innerHTML= qry;
-				myResult = x.childNodes;
+				var c = x.childNodes.length;
+				
+				for (var i=0; i < c; i++)
+					this[i] = (x.childNodes[i]);
+				
+				this.length = c;
+
 			}
 			else {
 				// if CSS query
 				this.selector = qry;
-				myResult = SEL(qry, context);
+				var result = SEL(qry, context);
+				
+				for (var i=0; i < result.length; i++)
+					this[i] = result[i];
+					
+				this.length = result.length;
 			}
 		}
 		
 		// if array, object or yShort object
 		else if (isObj(qry)) {
 			// if not array or yShort object, we need it to be an array
-			myResult = qry;
+			if (!qry.length)
+				qry = yS.makeArray(qry);
+			
+			for (var i=0; i < qry.length; i++)
+				this[i] = qry[i];
+				
+			this.length = qry.length;	
 			this.selector = qry.selector || null;
 		}
 		
@@ -98,19 +115,13 @@ yS.fn = yS.prototype = {
 				qry.call(win, yS, shortcuts);
 			});
 		}
-		
-		if (!yS.isArray(myResult))
-			myResult = yS.makeArray(myResult);
-
-		this.length = 0;	
-		myPush.apply(this, myResult);
 	},
 	
 	/****************************************************************
 	 * all the members below are shared amongs all yShort objects,  *
 	 * you change one, they affect ALL YAHOO.util.Short objects     *
 	 ****************************************************************/
-	
+	push: Array.prototype.push,
 	// version number and also for yShort object detection
 	yShort: '0.3',
 	// numbers of nodes inside current yShort obj
@@ -338,6 +349,7 @@ yS.fn = yS.prototype = {
 
 		return $;
 	},
+	
 	// TODO: rewrite ancestors so that i doesn't required have to be filtered by str 
 	ancestors: function(str){
 		var els=[],
@@ -371,7 +383,6 @@ yS.fn = yS.prototype = {
 		return $;
 	},
 	
-	// TODO: decrease usage of each
 	find: function(qry) {
 		var els = [],
 			$ = yS(this);
@@ -538,13 +549,15 @@ yS.fn = yS.prototype = {
 	appendTo: function(o) {
 		var tmp = get1stNode(o),
 			fragment = doc.createDocumentFragment();
-			
+
 		if (tmp) {
 			for (var i=0; i< this.length; i++) {
 				fragment.appendChild(this[i]);
 			};
 			tmp.appendChild(fragment);
+			
 		}
+
 		return this;
 	},
 	
@@ -615,7 +628,6 @@ yS.fn = yS.prototype = {
 		return tmp.substring(0, tmp.length-1);
 	},
 	
-	// used internally for now
 	animate: function(attr, milisec, fn, easing){
 		var sec = milisec/1000 || 1,
 			ease = easing || YAHOO.util.Easing.easeNone,
@@ -697,9 +709,6 @@ yS.fn = yS.prototype = {
 		return this;
 	}
 }
-
-// fake yShort as Array to inherit some really fast functions like sort
-yS.fn.init.prototype = Array.prototype;
 
 // drop init from list of prototypes as it's the constructor to prevent circular reference
 for(prop in yS.fn) {
@@ -859,6 +868,4 @@ yS.extend(yS, {
 
 }); // end yS.extend 
 })(); //end anonymous function
-
-
 

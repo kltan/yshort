@@ -1,4 +1,5 @@
-console.profile('Function calls');
+if (window.console && window.console.profile)
+	console.profile('Function calls');
 
 if (window.jQuery) {
 	yShort = jQuery;
@@ -143,4 +144,53 @@ myUnit(function(){
 	return yShort('#hiddenStuff').not('#hiddenStuff').length == 0;
 });
 
-console.profileEnd('Function calls');
+myUnit(function(){
+	return yShort('body').add('div').length > 1;
+});
+
+myUnit(function(){
+	return yShort('body').add('div').end()[0] === document.body;
+});
+
+myUnit(function(){
+	return yShort('body').children().length === 41;
+});
+
+myUnit(function(){
+	return yShort('body').children().end()[0]=== document.body;
+});
+
+myUnit(function(){
+	return yShort('body').children().end()[0]=== document.body;
+});
+
+myUnit(function(){
+	return yShort('ul').parent().length === 14;
+});
+
+myUnit(function(){
+	return yShort('ul').parent().end().length === 16;
+});
+
+myUnit(function(){
+	return yShort('ul').ancestors('html')[0] === document.documentElement;
+});
+
+myUnit(function(){
+	return yShort('ul').ancestors().end().length === 16
+});
+
+myUnit(function(){
+	return yShort('body').find('a').end()[0] === document.body
+});
+
+myUnit(function(){
+	return yShort("br").eq(0).next()[0].tagName === 'BR';
+});
+
+myUnit(function(){
+	return yShort("br").eq(1).prev()[0] === yShort("br")[0];
+});
+
+if (window.console && window.console.profile)
+	console.profileEnd('Function calls');

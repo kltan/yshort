@@ -1,7 +1,3 @@
-// fake yShort as Array to inherit some really fast functions like sort
-//yS.fn.init.constructor = Array.constructor;
-//yS.fn.init.prototype = Array.prototype;
-
 // drop init from list of prototypes as it's the constructor to prevent circular reference
 for(prop in yS.fn) {
 	if (prop != 'init')
@@ -24,6 +20,10 @@ yS.extend(yS, {
 	// iterate through each item in array
 	each: yS.fn.each,
 	
+	viewport: function() {
+		return DOM.getClientRegion();
+	},
+
 	// Make Object into Array
 	makeArray: function( array ) {
 		var ret = [];

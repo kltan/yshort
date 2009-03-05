@@ -72,6 +72,7 @@ yS.fn = yS.prototype = {
 	 * all the members below are shared amongs all yShort objects,  *
 	 * you change one, they affect ALL YAHOO.util.Short objects     *
 	 ****************************************************************/
+	// Array.prototype faster than []
 	push: Array.prototype.push,
 	sort: Array.prototype.sort,
 	splice: Array.prototype.splice,
@@ -168,15 +169,14 @@ yS.fn = yS.prototype = {
 		return this;
 	},
 	
-	getRegion: function(){
-		return DOM.getRegion(this[0]);
-	},
-	
 	// manipulate innerHTML of nodes or return innerHTML of first node
 	html: function(str) {
-		if (str === 0 || str) 
-			for (var i=0; i< this.length; i++)
-				this[i].innerHTML = str; 
+		if (yS.isNumber(str) || yS.isString(str))
+			for (var i=0; i< this.length; i++) {		
+				var newEl = this[i].cloneNode(false);
+				newEl.innerHTML = str;
+				this[i].parentNode.replaceChild(newEl, this[i]);
+			}
 		else 
 			return this[0].innerHTML;
 			
@@ -462,9 +462,23 @@ yS.fn = yS.prototype = {
 			this.css(obj);
 			return this;
 		}
+		// if windows
+		if (this[0] === win)
+			return yS.viewport()[type.toLowerCase()] || null;
+
+		// if document or documentElement
+		else if (this[0] === doc || this[0] === doc.documentElement)
+			return DOM['getDocument' + type]() || null;
 		
-		type = 'client'+ type;
-		return this[0][type] || false; // false for no height or width, probably item is not display:block?
+		else {
+			var region = DOM.getRegion(this[0]);
+			if (type === 'Width')
+				return (region.right - region.left) || null;
+			
+			else if (type === 'Height')
+				return (region.bottom - region.top) || null;
+		}
+		return null; // null for error
 	},
 	
 	// return width as calculated by browser
@@ -475,6 +489,10 @@ yS.fn = yS.prototype = {
 	// return height as calculated by browser
 	height: function(o) {
 		return this.dimension(o, 'Height');
+	},
+		
+	getRegion: function(){
+		return DOM.getRegion(this[0]);
 	},
 	
 	// attr does not support style and events, meant to be like this for elegant code
@@ -554,6 +572,16 @@ yS.fn = yS.prototype = {
 			var parent = tmp.parentNode,
 				next = DOM.getNextSibling(tmp);
 			parent.insertBefore(fragment, next);
+		}
+		return this;
+	},
+	
+	empty: function(){
+
+		for (var i=0; i< this.length; i++) {		
+			var newEl = this[i].cloneNode(false);
+			newEl.innerHTML = '';
+			this[i].parentNode.replaceChild(newEl, this[i]);
 		}
 		return this;
 	},

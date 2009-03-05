@@ -120,7 +120,11 @@ myUnit(function(){
 });
 */
 myUnit(function(){
-	return yShort('[title=sweet]').eq(0).html('asdf').html() === 'asdf'
+	return yShort('[title=sweet]').eq(0).html('asdf');
+});
+
+myUnit(function(){
+	return yShort('[title=sweet]').eq(0).html() === 'asdf'
 });
 
 myUnit(function(){
@@ -153,7 +157,7 @@ myUnit(function(){
 });
 
 myUnit(function(){
-	return yShort('body').children().length === 41;
+	return yShort('body').children().length === 42;
 });
 
 myUnit(function(){
@@ -171,7 +175,7 @@ myUnit(function(){
 myUnit(function(){
 	return yShort('ul').parent().end().length === 16;
 });
-
+/*
 myUnit(function(){
 	return yShort('ul').ancestors('html')[0] === document.documentElement;
 });
@@ -179,7 +183,7 @@ myUnit(function(){
 myUnit(function(){
 	return yShort('ul').ancestors().end().length === 16
 });
-
+*/
 myUnit(function(){
 	return yShort('body').find('a').end()[0] === document.body
 });
@@ -191,6 +195,17 @@ myUnit(function(){
 myUnit(function(){
 	return yShort("br").eq(1).prev()[0] === yShort("br")[0];
 });
+
+myUnit(function(){
+	return yShort('#hiddenStuff').empty();
+});
+
+myUnit(function(){
+	return yShort('#hiddenStuff')[0].childNodes.length === 0;
+});
+
+yShort('body').css('backgroundColor','black');
+yShort('body').css('color','white');
 
 if (window.console && window.console.profile)
 	console.profileEnd('Function calls');

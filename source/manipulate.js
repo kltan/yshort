@@ -7,81 +7,77 @@ var yS = UT.Short = win.yShort = function( qry, context ) {
 
 yS.fn = yS.prototype = {
 	// constructor, determines what to do with the query passed in
+	// the lesser the function calls from here the better
 	init: function(qry, context) {
 		context = context || doc;
 		qry = qry || doc;
 	
 		this.previousStack = [];
+		var myresult = [];
 		
 		// if DOM node
-		if (isNode(qry)) {
-			this[0] = qry;
-			this.length = 1;
-		}
+		if (qry.nodeType)
+			myresult = [qry];
 		
 		// if String
-		else if (isStr(qry)) {
+		else if (typeof qry === "string") {
 			// if HTML, create nodes from it and push into yShort object, then we can manipulate the nodes with yShort methods
-			if (isHTML(qry)) {
-				var x = doc.createElement('YSHORT');
-				x.innerHTML= qry;
-				var c = x.childNodes.length;
-				
-				for (var i=0; i < c; i++)
-					this[i] = (x.childNodes[i]);
-				
-				this.length = c;
-
+			if (/^<(.|\s)+>$/.test(qry)) {
+				var x = doc.createElement('P');
+				x.innerHTML = qry;
+				for (var i =0; i < x.childNodes.length; i++)
+					myresult[i] = x.childNodes[i];
 			}
 			else {
 				// if CSS query
 				this.selector = qry;
 				var result = SEL(qry, context);
-				
-				for (var i=0; i < result.length; i++)
-					this[i] = result[i];
-					
-				this.length = result.length;
+				myresult = result;
 			}
 		}
 		
 		// if array, object or yShort object
-		else if (isObj(qry)) {
-			// if not array or yShort object, we need it to be an array
-			if (!qry.length)
-				qry = yS.makeArray(qry);
-			
-			for (var i=0; i < qry.length; i++)
-				this[i] = qry[i];
-				
-			this.length = qry.length;	
+		else if (typeof qry === "object") {						
+			myresult = qry;
+			if (!yS.isArray(myresult))
+				myresult = Array.prototype.slice.call(myresult);
+
 			this.selector = qry.selector || null;
 		}
 		
-		// if function is passed, this runs before isHTML as it will also evaluate true
 		// onDOMready, we call the qry function and pass window object as the calling object, 
 		// YAHOO.util.Short as it's first argument and YAHOO.util.Shortcuts as second
-		else if (isFn(qry)) {
+		else if (typeof qry === "function") {
 			EV.onDOMReady(function(){ 
 				qry.call(win, yS, shortcuts);
 			});
 		}
+		
+		this.length = 0;
+		this.push.apply(this, myresult);
 	},
 	
 	/****************************************************************
 	 * all the members below are shared amongs all yShort objects,  *
 	 * you change one, they affect ALL YAHOO.util.Short objects     *
 	 ****************************************************************/
-	// Array.prototype faster than []
 	push: Array.prototype.push,
 	sort: Array.prototype.sort,
 	splice: Array.prototype.splice,
+	
 	// version number and also for yShort object detection
 	yShort: '<?=$version?>',
 	// numbers of nodes inside current yShort obj
 	length: null,
 	// the initial selector that was used to create this yshort obj, useful for live and die
 	selector: null,
+	
+	// not used in init to minimize function calls, use everywhere except init
+	populate: function(els){
+		this.length = 0;
+		this.push.apply(this, els);
+	},
+	
 	// iterate through all of yShorts elements or o's elements
 	each: function(o, fn) {
 		// for performance, no vigorous check, let there be errors if user pass something out of the ordinary
@@ -90,7 +86,7 @@ yS.fn = yS.prototype = {
 				o.call(this[i], i);
 		//
 		else {
-			if (!o.yShort && yS.isObject(o))
+			if (!o.yShort && !yS.isArray(o))
 				o = yS.makeArray(o); // if not array or yShort object, we need it to be an array
 			for (var i=0; i < o.length; i++)
 				fn.call(o[i], i);
@@ -147,7 +143,6 @@ yS.fn = yS.prototype = {
 		return this;
 	},
 	
-	
 	hasClass: function(str) {
 		return DOM.hasClass(this[0], str);
 	},
@@ -202,9 +197,10 @@ yS.fn = yS.prototype = {
 		// wipe plus reset length
 		$.stack(this)
 		 .wipe(els.length);
-		 
+		 /*
 		for (var i=0; i< $.length; i++)
-			$[i] = els[i];
+			$[i] = els[i];*/
+		$.populate(els);
 	
 		return $;
 	},
@@ -228,9 +224,10 @@ yS.fn = yS.prototype = {
 		$.stack(this)
 			.wipe(els.length);
 		
-		for (var i=0; i< $.length; i++)
-			$[i] = els[i];
-			
+		/*for (var i=0; i< $.length; i++)
+			$[i] = els[i];	
+		*/
+		$.populate(els);
 		return $;
 	},
 	
@@ -238,7 +235,7 @@ yS.fn = yS.prototype = {
 		var els = [], 
 			$ = yS(this);
 
-		if (isNode(qry))  // you can add a node
+		if (qry.nodeType)  // you can add a node
 			els[0] = qry;
 		else if (isObj(qry)) { // a yshort object, array or object
 			// if not yshort object and is object, convert to array
@@ -276,10 +273,11 @@ yS.fn = yS.prototype = {
 		$.stack(this)		
 		 .wipe(els.length);
 		 
-		
+		/*
 		for (var i=0; i< $.length; i++)
 			$[i] = els[i];
-			
+		*/
+		$.populate(els);
 		return $;
 	},
 	
@@ -297,8 +295,9 @@ yS.fn = yS.prototype = {
 		$.stack(this)
 		 .wipe(els.length);
 		 
-		for (var i=0; i< $.length; i++)
-			$[i] = els[i];
+		/*for (var i=0; i< $.length; i++)
+			$[i] = els[i];*/
+		$.populate(els);
 
 		return $;
 	},
@@ -322,10 +321,12 @@ yS.fn = yS.prototype = {
 			// we wipe first, so we reduce 'this' length for easy looping to match with els
 			$.stack(this)
 			 .wipe(els.length);
+	
+			$.populate(els);
 			 
-			for (var i=0; i< $.length; i++)
+			/*for (var i=0; i< $.length; i++)
 				$[i] = els[i];
-		
+			*/
 		}
 		else {
 			$.stack(this)
@@ -346,8 +347,9 @@ yS.fn = yS.prototype = {
 		$.stack(this)
 		 .wipe(els.length);
 		
-		for (var i=0; i< $.length; i++)
-			$[i] = els[i];
+		/*for (var i=0; i< $.length; i++)
+			$[i] = els[i];*/
+		$.populate(els);
 
 		return $;
 	},
@@ -366,8 +368,11 @@ yS.fn = yS.prototype = {
 		$.stack(this)
 		 .wipe(nS.length);
 		 
- 		for (var i=0; i< $.length; i++)
+ 		/*for (var i=0; i< $.length; i++)
 			$[i] = nS[i];
+			*/
+		$.populate(nS);
+
 		
 		return $;
 	},
@@ -385,10 +390,13 @@ yS.fn = yS.prototype = {
 
 		$.stack(this)
 		 .wipe(pS.length);
-		 
+		
+		/*
  		for (var i=0; i< $.length; i++)
 			$[i] = pS[i];
-		
+		*/
+		$.populate(pS);
+
 		return $;
 	},
 	
@@ -398,15 +406,18 @@ yS.fn = yS.prototype = {
 				DOM.setStyle(this , p , o[p]);
 			}
 		}
-		else if (isStr(o2)) {
+		else if (yS.isString(o2)) {
 			DOM.setStyle(this , o , o2) 
 		}
 		
-		else if (isStr(o))
+		else if (yS.isString(o))
 			return DOM.getStyle (this[0], o);
 
 		return this;		
 	},
+	
+	scrollTop: function(){},
+	scrollLeft: function(){},
 	
 	data: function(key,value) {
 		if (value)
@@ -458,7 +469,7 @@ yS.fn = yS.prototype = {
 			
 		if (o) {
 			// detect if string or int
-			obj[type.toLowerCase()] = isStr(o) ? o: parseInt(o, 10) + "px"; 
+			obj[type.toLowerCase()] = yS.isString(o) ? o: parseInt(o, 10) + "px"; 
 			this.css(obj);
 			return this;
 		}
@@ -491,7 +502,7 @@ yS.fn = yS.prototype = {
 		return this.dimension(o, 'Height');
 	},
 		
-	getRegion: function(){
+	offset: function(){
 		return DOM.getRegion(this[0]);
 	},
 	
@@ -577,12 +588,7 @@ yS.fn = yS.prototype = {
 	},
 	
 	empty: function(){
-
-		for (var i=0; i< this.length; i++) {		
-			var newEl = this[i].cloneNode(false);
-			newEl.innerHTML = '';
-			this[i].parentNode.replaceChild(newEl, this[i]);
-		}
+		this.html('');
 		return this;
 	},
 	

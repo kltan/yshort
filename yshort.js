@@ -5,18 +5,17 @@
  * Dual licensed under the MIT and BSD 
  * Copyright 2008-2009 Kean Tan 
  * Start date: 2008-12-17
- * Last build: 2009-03-04 06:13:47 PM 
+ * Last build: 2009-03-06 11:23:30 AM 
  */
 
 (function(){
 
 // caching of even natives to improve reference speed in non-JIT bytecode javascript engines
 var doc = document,
-	win = window,
+	win = this,
 	nav = navigator,
 	undefined, // speeding up undefined
 	myToString = Object.prototype.toString, // type detection function call
-	myPush = Array.prototype.push,
 	UT = win.YAHOO.util, // YAHOO.util
 	DOM = UT.Dom, // YAHOO.util.Dom
 	EV = UT.Event, // YAHOO.util.Event
@@ -26,16 +25,13 @@ var doc = document,
 	FIL = function(o, qry){	return win.Sizzle ?	win.Sizzle.filter(qry, o): UT.Selector.filter(o, qry); },
 	
 	// check for types
-	isFn = function(o) { return typeof o === "function" },
-	isStr = function(o) { return typeof o === "string" },
 	isObj = function(o) { return typeof o === "object" }, // array is also detected as object
-	isNode = function(o) { return o.nodeType; }, // fastest node detection, unreliable
-	isHTML = function(o) { return /^<(.|\s)+>$/.test(o) }, // lazy HTML detection, unreliable
 	
 	// some internal properties
-	get1stNode = function(o) { 	return isNode(o) ? o : SEL(o)[0]; }, // yShort internal method
+	get1stNode = function(o) { 	return o.nodeType ? o : SEL(o)[0]; }, // yShort internal method
 	yshortdata = 'yshortdata', // for data() use
 	yshorteffects ='yshorteffects', // for animate() use
+	
 	
 	// remapping some YUI namespace
 	shortcuts = YAHOO.util.Shortcuts = {
@@ -56,81 +52,76 @@ var yS = UT.Short = win.yShort = function( qry, context ) {
 
 yS.fn = yS.prototype = {
 	// constructor, determines what to do with the query passed in
+	// the secret of a fast library lies in it's init
 	init: function(qry, context) {
 		context = context || doc;
 		qry = qry || doc;
 	
 		this.previousStack = [];
+		var myresult = [];
 		
 		// if DOM node
-		if (isNode(qry)) {
-			this[0] = qry;
-			this.length = 1;
-		}
+		if (qry.nodeType)
+			myresult = [qry];
 		
 		// if String
-		else if (isStr(qry)) {
+		else if (typeof qry === "string") {
 			// if HTML, create nodes from it and push into yShort object, then we can manipulate the nodes with yShort methods
-			if (isHTML(qry)) {
-				var x = doc.createElement('YSHORT');
-				x.innerHTML= qry;
-				var c = x.childNodes.length;
-				
-				for (var i=0; i < c; i++)
-					this[i] = (x.childNodes[i]);
-				
-				this.length = c;
-
+			if (/^<(.|\s)+>$/.test(qry)) {
+				var x = doc.createElement('P');
+				x.innerHTML = qry;
+				for (var i =0; i < x.childNodes.length; i++)
+					myresult[i] = x.childNodes[i];
 			}
 			else {
 				// if CSS query
 				this.selector = qry;
 				var result = SEL(qry, context);
-				
-				for (var i=0; i < result.length; i++)
-					this[i] = result[i];
-					
-				this.length = result.length;
+				myresult = result;
 			}
 		}
 		
 		// if array, object or yShort object
-		else if (isObj(qry)) {
-			// if not array or yShort object, we need it to be an array
-			if (!qry.length)
-				qry = yS.makeArray(qry);
-			
-			for (var i=0; i < qry.length; i++)
-				this[i] = qry[i];
-				
-			this.length = qry.length;	
+		else if (typeof qry === "object") {						
+			myresult = qry;
+			if (!yS.isArray(myresult))
+				myresult = Array.prototype.slice.call(myresult);
+
 			this.selector = qry.selector || null;
 		}
 		
-		// if function is passed, this runs before isHTML as it will also evaluate true
 		// onDOMready, we call the qry function and pass window object as the calling object, 
 		// YAHOO.util.Short as it's first argument and YAHOO.util.Shortcuts as second
-		else if (isFn(qry)) {
+		else if (typeof qry === "function") {
 			EV.onDOMReady(function(){ 
 				qry.call(win, yS, shortcuts);
 			});
 		}
+		
+		this.length = 0;
+		this.push.apply(this, myresult);
 	},
 	
 	/****************************************************************
 	 * all the members below are shared amongs all yShort objects,  *
 	 * you change one, they affect ALL YAHOO.util.Short objects     *
 	 ****************************************************************/
-	// Array.prototype faster than []
 	push: Array.prototype.push,
 	sort: Array.prototype.sort,
 	splice: Array.prototype.splice,
+	
 	// version number and also for yShort object detection
 	yShort: '0.3',
 	// numbers of nodes inside current yShort obj
 	length: null,
 	// the initial selector that was used to create this yshort obj, useful for live and die
 	selector: null,
+		
+	populate: function(els){
+		this.length = 0;
+		this.push.apply(this, els);
+	},
+	
 	// iterate through all of yShorts elements or o's elements
 	each: function(o, fn) {
 		// for performance, no vigorous check, let there be errors if user pass something out of the ordinary
@@ -139,7 +130,7 @@ yS.fn = yS.prototype = {
 				o.call(this[i], i);
 		//
 		else {
-			if (!o.yShort && yS.isObject(o))
+			if (!o.yShort && !yS.isArray(o))
 				o = yS.makeArray(o); // if not array or yShort object, we need it to be an array
 			for (var i=0; i < o.length; i++)
 				fn.call(o[i], i);
@@ -196,7 +187,6 @@ yS.fn = yS.prototype = {
 		return this;
 	},
 	
-	
 	hasClass: function(str) {
 		return DOM.hasClass(this[0], str);
 	},
@@ -251,9 +241,10 @@ yS.fn = yS.prototype = {
 		// wipe plus reset length
 		$.stack(this)
 		 .wipe(els.length);
-		 
+		 /*
 		for (var i=0; i< $.length; i++)
-			$[i] = els[i];
+			$[i] = els[i];*/
+		$.populate(els);
 	
 		return $;
 	},
@@ -277,9 +268,10 @@ yS.fn = yS.prototype = {
 		$.stack(this)
 			.wipe(els.length);
 		
-		for (var i=0; i< $.length; i++)
-			$[i] = els[i];
-			
+		/*for (var i=0; i< $.length; i++)
+			$[i] = els[i];	
+		*/
+		$.populate(els);
 		return $;
 	},
 	
@@ -287,7 +279,7 @@ yS.fn = yS.prototype = {
 		var els = [], 
 			$ = yS(this);
 
-		if (isNode(qry))  // you can add a node
+		if (qry.nodeType)  // you can add a node
 			els[0] = qry;
 		else if (isObj(qry)) { // a yshort object, array or object
 			// if not yshort object and is object, convert to array
@@ -325,10 +317,11 @@ yS.fn = yS.prototype = {
 		$.stack(this)		
 		 .wipe(els.length);
 		 
-		
+		/*
 		for (var i=0; i< $.length; i++)
 			$[i] = els[i];
-			
+		*/
+		$.populate(els);
 		return $;
 	},
 	
@@ -346,8 +339,9 @@ yS.fn = yS.prototype = {
 		$.stack(this)
 		 .wipe(els.length);
 		 
-		for (var i=0; i< $.length; i++)
-			$[i] = els[i];
+		/*for (var i=0; i< $.length; i++)
+			$[i] = els[i];*/
+		$.populate(els);
 
 		return $;
 	},
@@ -371,10 +365,12 @@ yS.fn = yS.prototype = {
 			// we wipe first, so we reduce 'this' length for easy looping to match with els
 			$.stack(this)
 			 .wipe(els.length);
+	
+			$.populate(els);
 			 
-			for (var i=0; i< $.length; i++)
+			/*for (var i=0; i< $.length; i++)
 				$[i] = els[i];
-		
+			*/
 		}
 		else {
 			$.stack(this)
@@ -395,8 +391,9 @@ yS.fn = yS.prototype = {
 		$.stack(this)
 		 .wipe(els.length);
 		
-		for (var i=0; i< $.length; i++)
-			$[i] = els[i];
+		/*for (var i=0; i< $.length; i++)
+			$[i] = els[i];*/
+		$.populate(els);
 
 		return $;
 	},
@@ -415,8 +412,11 @@ yS.fn = yS.prototype = {
 		$.stack(this)
 		 .wipe(nS.length);
 		 
- 		for (var i=0; i< $.length; i++)
+ 		/*for (var i=0; i< $.length; i++)
 			$[i] = nS[i];
+			*/
+		$.populate(nS);
+
 		
 		return $;
 	},
@@ -434,10 +434,13 @@ yS.fn = yS.prototype = {
 
 		$.stack(this)
 		 .wipe(pS.length);
-		 
+		
+		/*
  		for (var i=0; i< $.length; i++)
 			$[i] = pS[i];
-		
+		*/
+		$.populate(pS);
+
 		return $;
 	},
 	
@@ -447,15 +450,18 @@ yS.fn = yS.prototype = {
 				DOM.setStyle(this , p , o[p]);
 			}
 		}
-		else if (isStr(o2)) {
+		else if (yS.isString(o2)) {
 			DOM.setStyle(this , o , o2) 
 		}
 		
-		else if (isStr(o))
+		else if (yS.isString(o))
 			return DOM.getStyle (this[0], o);
 
 		return this;		
 	},
+	
+	scrollTop: function(){},
+	scrollLeft: function(){},
 	
 	data: function(key,value) {
 		if (value)
@@ -507,7 +513,7 @@ yS.fn = yS.prototype = {
 			
 		if (o) {
 			// detect if string or int
-			obj[type.toLowerCase()] = isStr(o) ? o: parseInt(o, 10) + "px"; 
+			obj[type.toLowerCase()] = yS.isString(o) ? o: parseInt(o, 10) + "px"; 
 			this.css(obj);
 			return this;
 		}
@@ -540,7 +546,7 @@ yS.fn = yS.prototype = {
 		return this.dimension(o, 'Height');
 	},
 		
-	getRegion: function(){
+	offset: function(){
 		return DOM.getRegion(this[0]);
 	},
 	
@@ -626,12 +632,7 @@ yS.fn = yS.prototype = {
 	},
 	
 	empty: function(){
-
-		for (var i=0; i< this.length; i++) {		
-			var newEl = this[i].cloneNode(false);
-			newEl.innerHTML = '';
-			this[i].parentNode.replaceChild(newEl, this[i]);
-		}
+		this.html('');
 		return this;
 	},
 	
@@ -755,8 +756,10 @@ yS.extend = function(o) {
 	return o;
 };
 
+var expr = win.Sizzle ? { ':': Sizzle.selectors.filters } : {};
+
 // execute to extend yShort methods and properties
-yS.extend(yS, {
+yS.extend(yS, expr, {
 	// add random number to prevent collision
 	ySrandom: Math.floor(Math.random() * 100000),
 	
@@ -766,7 +769,11 @@ yS.extend(yS, {
 	viewport: function() {
 		return DOM.getClientRegion();
 	},
-
+	
+	noConflict: function() {
+		win.$ = _$;
+		return yS;
+	},
 	// Make Object into Array
 	makeArray: function( array ) {
 		var ret = [];
@@ -888,15 +895,15 @@ yS.extend(yS, {
 	isArray: function(o){ return myToString.call(o) === "[object Array]" },
 	isObject: function(o){ return myToString.call(o) === "[object Object]" },
 	isDate: function(o){ return myToString.call(o) === "[object Date]" },
-	isFunction: isFn,
-	isString: isStr,
+	isFunction: function(o) { return typeof o === "function" },
+	isString: function(o) { return typeof o === "string" },
 	isNumber: function(o){ return typeof o === "number" },
 	isBoolean: function(o){ return typeof o === "boolean" },
 
 	// Detecting major browsers using feature detection
 	isIE6: function(){ return (doc.body.style.maxHeight === undefined) ? true: false; },
 	isIE7: function(){ return (!win.opera && win.XMLHttpRequest && !doc.querySelectorAll) ? true : false;	},
-	isIE: function(){ return (win.attachEvent && !win.opera) ? true: false; },
+	isIE: function(){ return (win.ActiveXObject && doc.all && !win.opera) ? true: false; },
 	isGecko: function(){return (doc.getBoxObjectFor === undefined) ? false : true;	},
 	isOpera: function(){ return (win.opera) ? true : false;	},
 	isWebkit: function(){ return (nav.taintEnabled) ? false : true; }

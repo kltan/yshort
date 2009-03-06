@@ -12,8 +12,10 @@ yS.extend = function(o) {
 	return o;
 };
 
+var expr = win.Sizzle ? { ':': Sizzle.selectors.filters } : {};
+
 // execute to extend yShort methods and properties
-yS.extend(yS, {
+yS.extend(yS, expr, {
 	// add random number to prevent collision
 	ySrandom: Math.floor(Math.random() * 100000),
 	
@@ -23,7 +25,11 @@ yS.extend(yS, {
 	viewport: function() {
 		return DOM.getClientRegion();
 	},
-
+	
+	noConflict: function() {
+		win.$ = _$;
+		return yS;
+	},
 	// Make Object into Array
 	makeArray: function( array ) {
 		var ret = [];
@@ -145,15 +151,15 @@ yS.extend(yS, {
 	isArray: function(o){ return myToString.call(o) === "[object Array]" },
 	isObject: function(o){ return myToString.call(o) === "[object Object]" },
 	isDate: function(o){ return myToString.call(o) === "[object Date]" },
-	isFunction: isFn,
-	isString: isStr,
+	isFunction: function(o) { return typeof o === "function" },
+	isString: function(o) { return typeof o === "string" },
 	isNumber: function(o){ return typeof o === "number" },
 	isBoolean: function(o){ return typeof o === "boolean" },
 
 	// Detecting major browsers using feature detection
 	isIE6: function(){ return (doc.body.style.maxHeight === undefined) ? true: false; },
 	isIE7: function(){ return (!win.opera && win.XMLHttpRequest && !doc.querySelectorAll) ? true : false;	},
-	isIE: function(){ return (win.attachEvent && !win.opera) ? true: false; },
+	isIE: function(){ return (win.ActiveXObject && doc.all && !win.opera) ? true: false; },
 	isGecko: function(){return (doc.getBoxObjectFor === undefined) ? false : true;	},
 	isOpera: function(){ return (win.opera) ? true : false;	},
 	isWebkit: function(){ return (nav.taintEnabled) ? false : true; }

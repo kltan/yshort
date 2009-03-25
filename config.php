@@ -2,7 +2,7 @@
 
 // Settings for yShort
 
-$version = '0.3';
+$version = '0.4';
 $homepage = 'http://github.com/kltan/yshort/tree/master';
 $description = 'A really short way to write YUI 2.6.x - 2.7.x';
 $license = 'Dual licensed under the MIT and BSD';
@@ -23,6 +23,5 @@ $output_min = 'yshort.min.js';
 
 $include_yShort = true;
 $include_jQuery = false;
-
 
 ?>

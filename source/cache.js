@@ -12,7 +12,7 @@ var doc = document,
 	EL = UT.Element, // YAHOO.util.Element
 	FIL = function(o, qry){	return win.Sizzle ?	win.Sizzle.filter(qry, o): UT.Selector.filter(o, qry); },
 	
-	// check for types
+	// check for object, not using Miller as we want Array to be detected as object in many instance
 	isObj = function(o) { return typeof o === "object" }, // array is also detected as object
 	
 	// some internal properties

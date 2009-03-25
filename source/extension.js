@@ -1,5 +1,5 @@
 // drop init from list of prototypes as it's the constructor to prevent circular reference
-for(prop in yS.fn) {
+for(var prop in yS.fn) {
 	if (prop != 'init')
 		yS.fn.init.prototype[prop] = yS.fn[prop];
 }
@@ -157,11 +157,12 @@ yS.extend(yS, expr, {
 	isBoolean: function(o){ return typeof o === "boolean" },
 
 	// Detecting major browsers using feature detection
-	isIE6: function(){ return (doc.body.style.maxHeight === undefined) ? true: false; },
-	isIE7: function(){ return (!win.opera && win.XMLHttpRequest && !doc.querySelectorAll) ? true : false;	},
-	isIE: function(){ return (win.ActiveXObject && doc.all && !win.opera) ? true: false; },
-	isGecko: function(){return (doc.getBoxObjectFor === undefined) ? false : true;	},
-	isOpera: function(){ return (win.opera) ? true : false;	},
-	isWebkit: function(){ return (nav.taintEnabled) ? false : true; }
+	isIE6: function(){ return (doc.body.style.maxHeight === undefined) },
+	isIE7: function(){ return (!win.opera && win.XMLHttpRequest && !doc.querySelectorAll) },
+	isIE8: function(){ return (!win.opera && win.XMLHttpRequest && doc.querySelectorAll) },
+	isIE: function(){ return (win.ActiveXObject && doc.all && !win.opera) },
+	isGecko: function(){return (doc.getBoxObjectFor === undefined) },
+	isOpera: function(){ return (win.opera) },
+	isWebkit: function(){ return (nav.taintEnabled) }
 
 }); // end yS.extend 

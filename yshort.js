@@ -1,11 +1,11 @@
 /*!
- * yShort 0.3 
+ * yShort 0.4 
  * http://github.com/kltan/yshort/tree/master 
  * A really short way to write YUI 2.6.x - 2.7.x 
  * Dual licensed under the MIT and BSD 
  * Copyright 2008-2009 Kean Tan 
  * Start date: 2008-12-17
- * Last build: 2009-03-06 11:23:30 AM 
+ * Last build: 2009-03-25 01:39:41 PM 
  */
 
 (function(){
@@ -24,7 +24,7 @@ var doc = document,
 	EL = UT.Element, // YAHOO.util.Element
 	FIL = function(o, qry){	return win.Sizzle ?	win.Sizzle.filter(qry, o): UT.Selector.filter(o, qry); },
 	
-	// check for types
+	// check for object, not using Miller as we want Array to be detected as object in many instance
 	isObj = function(o) { return typeof o === "object" }, // array is also detected as object
 	
 	// some internal properties
@@ -45,16 +45,16 @@ var doc = document,
 
 // yS for internal use 
 // YAHOO.util.Short for global use
-var yS = UT.Short = win.yShort = function( qry, context ) {
+var yS = UT.Short = win.yShort = win.y$ = function( qry, context ) {
 	// Constructor
 	return new yS.fn.init( qry, context );
 };
 
 yS.fn = yS.prototype = {
 	// constructor, determines what to do with the query passed in
-	// the secret of a fast library lies in it's init
+	// the lesser the function calls from here the better
 	init: function(qry, context) {
-		context = context || doc;
+		this.context = context || doc;
 		qry = qry || doc;
 	
 		this.previousStack = [];
@@ -68,7 +68,7 @@ yS.fn = yS.prototype = {
 		else if (typeof qry === "string") {
 			// if HTML, create nodes from it and push into yShort object, then we can manipulate the nodes with yShort methods
 			if (/^<(.|\s)+>$/.test(qry)) {
-				var x = doc.createElement('P');
+				var x = doc.createElement('DIV');
 				x.innerHTML = qry;
 				for (var i =0; i < x.childNodes.length; i++)
 					myresult[i] = x.childNodes[i];
@@ -76,7 +76,7 @@ yS.fn = yS.prototype = {
 			else {
 				// if CSS query
 				this.selector = qry;
-				var result = SEL(qry, context);
+				var result = SEL(qry, this.context);
 				myresult = result;
 			}
 		}
@@ -106,20 +106,24 @@ yS.fn = yS.prototype = {
 	 * all the members below are shared amongs all yShort objects,  *
 	 * you change one, they affect ALL YAHOO.util.Short objects     *
 	 ****************************************************************/
+	 
+	// overload three of these and it will trick firebug to display yShort as array (false array)
 	push: Array.prototype.push,
 	sort: Array.prototype.sort,
 	splice: Array.prototype.splice,
 	
 	// version number and also for yShort object detection
-	yShort: '0.3',
+	yShort: '0.4',
 	// numbers of nodes inside current yShort obj
 	length: null,
 	// the initial selector that was used to create this yshort obj, useful for live and die
 	selector: null,
-		
+	
+	// not used in init to minimize function calls, use everywhere except init
 	populate: function(els){
 		this.length = 0;
 		this.push.apply(this, els);
+		return this;
 	},
 	
 	// iterate through all of yShorts elements or o's elements
@@ -203,18 +207,11 @@ yS.fn = yS.prototype = {
 		return this;
 	},
 	
-	generateId: function(prefix) {
-		DOM.generateId(this, prefix);
-		return this;
-	},
-	
 	// manipulate innerHTML of nodes or return innerHTML of first node
 	html: function(str) {
 		if (yS.isNumber(str) || yS.isString(str))
 			for (var i=0; i< this.length; i++) {		
-				var newEl = this[i].cloneNode(false);
-				newEl.innerHTML = str;
-				this[i].parentNode.replaceChild(newEl, this[i]);
+				this[i].innerHTML = str;
 			}
 		else 
 			return this[0].innerHTML;
@@ -240,11 +237,8 @@ yS.fn = yS.prototype = {
 			els = FIL($, qry);
 		// wipe plus reset length
 		$.stack(this)
-		 .wipe(els.length);
-		 /*
-		for (var i=0; i< $.length; i++)
-			$[i] = els[i];*/
-		$.populate(els);
+		 .wipe(els.length)
+		 .populate(els);
 	
 		return $;
 	},
@@ -259,19 +253,14 @@ yS.fn = yS.prototype = {
 		return els.length ? true: false;
 	},
 	
-	// TODO: stack not, so we can end
 	// just pass this to the selector filter and wrap them in :not
 	not: function(qry) {
 		var $ = yS(this);
 		var els = FIL($, ":not("+qry+")");
 		
 		$.stack(this)
-			.wipe(els.length);
-		
-		/*for (var i=0; i< $.length; i++)
-			$[i] = els[i];	
-		*/
-		$.populate(els);
+		 .wipe(els.length)
+		 .populate(els);
 		return $;
 	},
 	
@@ -281,7 +270,8 @@ yS.fn = yS.prototype = {
 
 		if (qry.nodeType)  // you can add a node
 			els[0] = qry;
-		else if (isObj(qry)) { // a yshort object, array or object
+		else if (isObj(qry)) { 
+			// a yshort object, array or object
 			// if not yshort object and is object, convert to array
 			if (!qry.yshort && yS.isObject(qry)) 
 				qry = yS.makeArray(qry);
@@ -345,7 +335,7 @@ yS.fn = yS.prototype = {
 
 		return $;
 	},
-	// TODO: rewrite ancestors so that i doesn't required have to be filtered by str 
+
 	ancestors: function(str){
 		var els=[],
 			$ = yS(this);
@@ -358,19 +348,17 @@ yS.fn = yS.prototype = {
 					temp=temp.parentNode;
 				}
 			};
-	
-			els = FIL(els, str);
-			els = yS.unique(els);
-
+			
+			if(str)	{
+				els = FIL(els, str);
+				els = yS.unique(els);
+			}
 			// we wipe first, so we reduce 'this' length for easy looping to match with els
 			$.stack(this)
 			 .wipe(els.length);
 	
 			$.populate(els);
-			 
-			/*for (var i=0; i< $.length; i++)
-				$[i] = els[i];
-			*/
+
 		}
 		else {
 			$.stack(this)
@@ -380,7 +368,6 @@ yS.fn = yS.prototype = {
 		return $;
 	},
 	
-	// TODO: decrease usage of each
 	find: function(qry) {
 		var els = [],
 			$ = yS(this);
@@ -389,11 +376,8 @@ yS.fn = yS.prototype = {
 		
 		// we wipe first, so we reduce 'this' length for easy looping to match with els
 		$.stack(this)
-		 .wipe(els.length);
-		
-		/*for (var i=0; i< $.length; i++)
-			$[i] = els[i];*/
-		$.populate(els);
+		 .wipe(els.length)
+		 .populate(els);
 
 		return $;
 	},
@@ -410,12 +394,8 @@ yS.fn = yS.prototype = {
 		};
 
 		$.stack(this)
-		 .wipe(nS.length);
-		 
- 		/*for (var i=0; i< $.length; i++)
-			$[i] = nS[i];
-			*/
-		$.populate(nS);
+		 .wipe(nS.length)
+		 .populate(nS);
 
 		
 		return $;
@@ -433,20 +413,15 @@ yS.fn = yS.prototype = {
 		};
 
 		$.stack(this)
-		 .wipe(pS.length);
-		
-		/*
- 		for (var i=0; i< $.length; i++)
-			$[i] = pS[i];
-		*/
-		$.populate(pS);
+		 .wipe(pS.length)
+		 .populate(pS);
 
 		return $;
 	},
 	
 	css: function(o, o2) {
 		if (isObj(o)) {
-			for (p in o) {
+			for (var p in o) {
 				DOM.setStyle(this , p , o[p]);
 			}
 		}
@@ -459,10 +434,7 @@ yS.fn = yS.prototype = {
 
 		return this;		
 	},
-	
-	scrollTop: function(){},
-	scrollLeft: function(){},
-	
+
 	data: function(key,value) {
 		if (value)
 			for (var i=0; i< this.length; i++) {
@@ -488,6 +460,7 @@ yS.fn = yS.prototype = {
 		return this;
 	},
 	
+	/* this has to be rewritten to have event namespacing */
 	bind: function(type, fn) {
 		var tmp = type.split(' ');
 
@@ -498,12 +471,10 @@ yS.fn = yS.prototype = {
 		return this;
 	},
 	
+	/* this has to be rewritten to have event namespacing */
 	unbind: function(type, fn) {
-		var tmp = type.split(' ');
-		
-		for (var i=0; i< tmp.length; i++)
-			if(tmp[i])
-				EV.removeListener(this, tmp[i], fn);
+		for(var i=0; i<this.length; i++)
+			EV.removeListener(this[i], fn);
 
 		return this;
 	},
@@ -556,7 +527,7 @@ yS.fn = yS.prototype = {
 		// if prop is obj, we disregard val
 		if (isObj(prop)) {
 			for(var i=0; i<this.length; i++)
-				for(attribute in prop)
+				for(var attribute in prop)
 					this[i].setAttribute(attribute,prop[attribute]);
 		}
 		// if prop is not obj (means string) and val exists
@@ -636,24 +607,35 @@ yS.fn = yS.prototype = {
 		return this;
 	},
 	
-	/* TODO: look into function events cloning */
 	clone: function(){
 		var $ = yS(this),
-			cloned = $[0].cloneNode(true);
+			cloned = [];
 
-		$.stack(this)
-		 .wipe(1);
-		 
-		$[0] = cloned;
-		
+		for(var i=0;i<$.length;i++) {
+			var string;
+			if ($[i].outerHTML){
+				string = $[i].outerHTML;		
+			}
+			else {
+				var x = doc.createElement('DIV');
+				x.appendChild($[i].cloneNode(true));
+				string = x.innerHTML;
+			}
+			// newlines and spaces will cause some browsers to breakdown
+			cloned.push(yS(string.replace(/[\n\r\t]/g, '').replace( /^\s+|\s+$/g, ''))[0]);
+		}
+
+		$.wipe()
+		 .stack(this)
+		 .populate(cloned);
+				
 		return $;
 	},
 	
-	// TODO: serialize seriously needs some heavy makeover 
 	serialize: function() {
 		var tmp = '';
 		for (var i=0; i<this.length; i++)
-			if (this[i].name)
+			if (this[i].name) // not necessary to have a value
 				tmp += this[i].name + '=' + this[i].value + '&';
 		// rtrim the & symbol
 		return tmp.substring(0, tmp.length-1);
@@ -737,13 +719,12 @@ yS.fn = yS.prototype = {
 				fx[fx.length-1].animate();
 			};
 		}
-		
 		return this;
 	}
 }
 
 // drop init from list of prototypes as it's the constructor to prevent circular reference
-for(prop in yS.fn) {
+for(var prop in yS.fn) {
 	if (prop != 'init')
 		yS.fn.init.prototype[prop] = yS.fn[prop];
 }
@@ -901,12 +882,13 @@ yS.extend(yS, expr, {
 	isBoolean: function(o){ return typeof o === "boolean" },
 
 	// Detecting major browsers using feature detection
-	isIE6: function(){ return (doc.body.style.maxHeight === undefined) ? true: false; },
-	isIE7: function(){ return (!win.opera && win.XMLHttpRequest && !doc.querySelectorAll) ? true : false;	},
-	isIE: function(){ return (win.ActiveXObject && doc.all && !win.opera) ? true: false; },
-	isGecko: function(){return (doc.getBoxObjectFor === undefined) ? false : true;	},
-	isOpera: function(){ return (win.opera) ? true : false;	},
-	isWebkit: function(){ return (nav.taintEnabled) ? false : true; }
+	isIE6: function(){ return (doc.body.style.maxHeight === undefined) },
+	isIE7: function(){ return (!win.opera && win.XMLHttpRequest && !doc.querySelectorAll) },
+	isIE8: function(){ return (!win.opera && win.XMLHttpRequest && doc.querySelectorAll) },
+	isIE: function(){ return (win.ActiveXObject && doc.all && !win.opera) },
+	isGecko: function(){return (doc.getBoxObjectFor === undefined) },
+	isOpera: function(){ return (win.opera) },
+	isWebkit: function(){ return (nav.taintEnabled) }
 
 }); // end yS.extend 
 })(); //end anonymous function

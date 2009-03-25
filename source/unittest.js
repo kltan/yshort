@@ -210,5 +210,7 @@ yShort(function(){
 
 	if (window.console && window.console.profile)
 		console.profileEnd('Function calls');
+	
+	yShort('pre.passed').eq(0).clone().css('color','red').appendTo(document.body);
 });
 
